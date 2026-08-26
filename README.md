@@ -9,107 +9,131 @@ pinned: false
 license: mit
 ---
 
-# Pneumonia Diagnostic Hub | AI Radiology Workstation & Decision Support System
+# Pneumonia Diagnostic Hub
 
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange)
-![Keras](https://img.shields.io/badge/Keras-3.x-red)
-![Flask](https://img.shields.io/badge/Flask-3.x-black)
-![XAI](https://img.shields.io/badge/Explainable%20AI-Grad--CAM-green)
-![DICOM](https://img.shields.io/badge/Medical-DICOM%20Ready-blueviolet)
+Flask and TensorFlow workstation for experimental chest-radiograph pneumonia screening. It provides single-model inference, a four-model weighted comparison, Grad-CAM visualizations, DICOM conversion, sample studies, and downloadable PDF reports through both a browser UI and a REST API.
+
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Flask](https://img.shields.io/badge/Flask-REST%20API-black)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-model%20inference-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-A hospital-grade deep learning radiology platform for automated pneumonia screening, multi-model weighted consensus evaluation, Grad-CAM visual explainability, native DICOM (`.dcm`) parsing, and automated clinical PDF diagnostic report generation.
+> **Medical disclaimer:** This is an educational and research decision-support project. It is not a medical device and must not be used as the sole basis for diagnosis or treatment. A qualified clinician must review every study and the original source data.
 
----
+## What the application does
 
-## 🌟 Key Features
+- Accepts `PNG`, `JPG`, `JPEG`, `WEBP`, and `DICOM (.dcm)` uploads up to 32 MB.
+- Converts DICOM pixel data to an 8-bit three-channel JPEG and extracts selected patient and acquisition metadata.
+- Runs one selected CNN or all four registered models with weighted soft voting.
+- Generates Grad-CAM heatmaps and overlays when explainability is enabled.
+- Produces a PDF report containing the scan identifier, supplied demographics, probabilities, model telemetry, and available visual evidence.
+- Includes three generated sample radiographs for testing the workflow without an upload.
+- Provides a browser workstation at `/` and interactive Swagger UI at `/docs`.
 
-- **⚔️ Multi-Model Consensus Battleground**: Simultaneous evaluation across 4 CNN backbones (*MobileNetV2*, *ResNet50*, *EfficientNetB0*, *VGG19*) with weighted soft-voting consensus and inter-model agreement analytics.
-- **🔍 Explainable AI (Grad-CAM XAI)**: Spatial gradient activation maps backpropagated from target convolutional layers with interactive split-screen swipe sliders.
-- **🏥 Native DICOM Support**: Ingests raw `.dcm` medical imaging files with automatic VOI LUT lung windowing ($W: 1500, L: -600$) and DICOM header extraction.
-- **📄 Publication-Quality PDF Reports**: 1-click clinical diagnostic reports with patient demographics, side-by-side CXR/Grad-CAM figures, model telemetry tables, and clinical findings.
-- **🌓 High-Contrast Dark Mode**: Radiologist-optimized slate workstation theme designed for low-light clinical reading rooms.
-- **📖 Interactive Swagger REST API (`/docs`)**: OpenAPI 3.0-compliant endpoints for enterprise EHR/PACS integration.
+The default model is MobileNetV2 (`mobilenet`). The ensemble weights are MobileNetV2 45%, ResNet50 25%, EfficientNetB0 20%, and VGG19 10%. These weights and the model metadata are defined in `Flask Application/config.py`; they are not a substitute for clinical validation.
 
----
+## Repository layout
 
-## 🏗️ Model Architecture & Benchmark Matrix
-
-| Model Architecture | Parameters | Memory Size | Target Conv Layer | Ensemble Weight | Validation Acc |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **MobileNetV2** ⭐ *(Recommended)* | 3.5M | 11.5 MB | `out_relu` | **45%** | **87.5%** |
-| **ResNet50** | 25.6M | 101.2 MB | `conv5_block3_out` | **25%** | 50.0% (1-epoch) |
-| **EfficientNetB0** | 5.3M | 20.8 MB | `top_activation` | **20%** | 50.0% |
-| **VGG19** | 63.1M | 443.6 MB | `block5_conv4` | **10%** | 62.5% |
-
----
-
-## 🚀 Live Deployment on Hugging Face Spaces
-
-This repository is pre-configured for instant deployment on **Hugging Face Spaces** using Docker:
-
-```bash
-# 1. Add your Hugging Face Space as a remote
-git remote add space https://huggingface.co/spaces/<your-username>/pneumonia-diagnostic-hub
-
-# 2. Track model weights with Git LFS
-git lfs track "*.h5"
-git add .gitattributes
-
-# 3. Push to Hugging Face
-git add .
-git commit -m "Deploy Pneumonia Diagnostic Hub"
-git push space main
+```text
+Flask Application/
+  app.py                 Flask application factory and development entry point
+  wsgi.py                Production WSGI entry point
+  config.py              Upload, model, label, and sample configuration
+  core/                  Preprocessing, inference, Grad-CAM, DICOM, and PDF logic
+  routes/                Web, API, and OpenAPI/Swagger blueprints
+  templates/index.html   Browser workstation
+  static/                Generated samples, uploads, overlays, and reports
+  *_model.h5             Bundled TensorFlow/Keras model weights
+tests/                    Pytest coverage for the core modules and routes
+Dockerfile               Gunicorn image definition
+docker-compose.yml       Local container orchestration
+requirements.txt         Python dependencies
 ```
 
----
-
-## 💻 Local Quickstart
+## Quickstart
 
 ### Prerequisites
-```bash
-Python 3.10+ / 3.11+ / 3.12+ / 3.13+
-```
 
-### Installation
-```bash
-# Clone the repository
-git clone https://github.com/Shahab-khan396/Pneumonia-Diagnostic-Hub-Multi-Model-AI-Detector.git
-cd Pneumonia-Diagnostic-Hub-Multi-Model-AI-Detector
+- Python 3.11 is the tested container/runtime baseline.
+- Docker and Docker Compose are an alternative to a local Python environment.
+- The four `.h5` model files must remain in `Flask Application/`.
 
-# Create virtual environment
+### Local installation
+
+Run these commands from the repository root. The root `requirements.txt` is the canonical dependency file used by the Dockerfile.
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate  # On Linux/macOS: source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-### Running the Application
-```bash
+On macOS or Linux, activate the environment with `source .venv/bin/activate`.
+
+### Start the development server
+
+```powershell
 python "Flask Application/app.py"
 ```
-- Open **`http://127.0.0.1:5000`** in your browser.
-- Open **`http://127.0.0.1:5000/docs`** for interactive Swagger API documentation.
 
-### Running with Docker
-```bash
+Open `http://127.0.0.1:5000/` for the workstation or `http://127.0.0.1:5000/docs` for Swagger UI. Startup attempts to preload MobileNetV2; missing or unloadable weights are logged as a warning and will fail when that model is used.
+
+### Start with Docker
+
+```powershell
 docker compose up --build
 ```
 
----
+The compose file maps host port `5000` to container port `7860`. The Docker image runs Gunicorn with one worker and four threads, and uses `PORT` (default `7860`) and `SECRET_KEY` environment variables.
 
-## 🧪 Automated Test Suite (100% Pass Rate)
+For Hugging Face Spaces, the included Docker metadata exposes port `7860`. Do not commit real patient data, production secrets, generated reports, or uploaded studies.
 
-Run the full pytest suite:
-```bash
-pytest tests/ -v
+## API
+
+All JSON endpoints are versioned under `/api/v1`.
+
+| Method | Endpoint | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/health` | Service status and model availability |
+| `GET` | `/api/v1/models` | Registered model catalog and load status |
+| `GET` | `/api/v1/samples` | Generated sample radiograph catalog |
+| `POST` | `/api/v1/predict` | Single-model prediction, optional Grad-CAM and PDF |
+| `POST` | `/api/v1/compare` | Four-model predictions and weighted consensus |
+| `GET` | `/api/v1/report/<filename>` | Download a generated PDF report |
+| `GET` | `/api/v1/openapi.json` | OpenAPI 3.0.3 document |
+
+`predict` and `compare` use `multipart/form-data`. Provide either a `file` part or a `sample_id`. Optional fields include `model_choice`, `explain`, `generate_report`, `patient_id`, `patient_age`, `patient_gender`, `clinical_history`, and `referring_physician`. `model_choice` defaults to `mobilenet`; `explain` defaults to `true`; `generate_report` defaults to `true` for `predict` and reports are always generated by `compare`.
+
+Example request using the built-in sample:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:5000/api/v1/predict `
+  -F "sample_id=sample_bacterial" `
+  -F "model_choice=mobilenet" `
+  -F "explain=true" `
+  -F "generate_report=true"
 ```
 
----
+The response includes probabilities, inference timing, a scan ID, image/Grad-CAM URLs when available, and a `report_pdf_url`. The comparison response additionally includes per-model results, vote counts, agreement status, and consensus probabilities.
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Testing
 
-**Disclaimer:** Developed for educational and research decision-support purposes only. All clinical outcomes must be verified by a licensed medical practitioner.
+Run the suite from the repository root:
+
+```powershell
+python -m pytest tests/ -v
+```
+
+The tests cover validation, preprocessing, model management, Grad-CAM, ensemble voting, DICOM parsing, PDF creation, sample generation, API routes, and Swagger/OpenAPI routes. Tests load the bundled TensorFlow models, so the first run can be resource-intensive.
+
+## Data and security notes
+
+- Uploaded images, converted DICOM JPEGs, Grad-CAM images, and reports are written under `Flask Application/static/uploads/`.
+- Sample images are generated under `Flask Application/static/samples/` when the catalog is first requested.
+- The default secret key is for development only. Set `SECRET_KEY` to a strong deployment-specific value.
+- DICOM metadata can contain protected health information. Use anonymized fixtures and apply appropriate access controls, retention, and audit practices before any real deployment.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
