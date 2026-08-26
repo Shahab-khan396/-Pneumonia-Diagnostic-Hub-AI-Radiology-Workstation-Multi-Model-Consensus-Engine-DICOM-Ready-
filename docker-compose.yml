@@ -1,0 +1,10 @@
+services:
+  pneumonia-diagnostic-hub:
+    build: .
+    container_name: pneumonia_diagnostic_hub
+    ports:
+      - "5000:7860"
+    environment:
+      - PORT=7860
+      - SECRET_KEY=pneumonia-diagnostic-hub-production-key
+    restart: unless-stopped
