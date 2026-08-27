@@ -284,5 +284,137 @@ with gr.Blocks(theme=custom_theme, title="Pneumonia Diagnostic Hub • AI Radiol
         outputs=[verdict_output, orig_image_out, cam_image_out, prob_output, breakdown_table_out, pdf_download_out]
     )
 
+
+# ─── FastAPI REST API Engine ──────────────────────────────────────────────────
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import base64
+
+fastapi_app = FastAPI(title="Pneumonia Hub Inference Engine")
+fastapi_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@fastapi_app.get("/api/v1/health")
+async def health_api():
+    return {
+        "status": "healthy",
+        "service": "Pneumonia-Diagnostic-Hub-HF-Engine",
+        "hf_space_url": "https://shahabkhan396-pneumonia-hub.hf.space"
+    }
+
+
+@fastapi_app.post("/api/v1/predict")
+@GPU_DECORATOR
+async def predict_api_endpoint(
+    file: UploadFile = File(...),
+    model_choice: str = Form("mobilenet"),
+    explain: str = Form("true"),
+    generate_report: str = Form("false"),
+):
+    scan_id = uuid.uuid4().hex[:8].upper()
+    temp_dir = Path(tempfile.gettempdir()) / "pneumonia_hub"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_bytes = await file.read()
+    temp_file = temp_dir / f"{scan_id}_{file.filename or 'scan.jpg'}"
+    temp_file.write_bytes(raw_bytes)
+
+    try:
+        dicom_meta = None
+        if is_dicom_file(temp_file):
+            _, dicom_meta, converted_jpg = parse_dicom_file(temp_file)
+            input_path = converted_jpg
+        else:
+            input_path = temp_file
+
+        img_tensor = preprocess_image(input_path)
+        manager = get_model_manager()
+
+        res = manager.predict(
+            model_id=model_choice,
+            image_tensor=img_tensor,
+            generate_cam=(explain.lower() in ["true", "1", "yes"]),
+            original_image_path=input_path,
+            base_filename=f"{scan_id}_{model_choice}.jpg"
+        )
+
+        # Convert Grad-CAM image to base64 if available
+        cam_b64 = None
+        if res.get("has_gradcam") and res.get("gradcam_overlay_url"):
+            cam_path = FLASK_APP_DIR / res["gradcam_overlay_url"].lstrip("/")
+            if cam_path.exists():
+                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
+
+        res["scan_id"] = scan_id
+        res["gradcam_overlay_b64"] = cam_b64
+        res["dicom_metadata"] = dicom_meta
+        return res
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(exc)})
+    finally:
+        if temp_file.exists():
+            temp_file.unlink(missing_ok=True)
+
+
+@fastapi_app.post("/api/v1/compare")
+@GPU_DECORATOR
+async def compare_api_endpoint(
+    file: UploadFile = File(...),
+    explain: str = Form("true"),
+    generate_report: str = Form("false"),
+):
+    scan_id = uuid.uuid4().hex[:8].upper()
+    temp_dir = Path(tempfile.gettempdir()) / "pneumonia_hub"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_bytes = await file.read()
+    temp_file = temp_dir / f"{scan_id}_{file.filename or 'scan.jpg'}"
+    temp_file.write_bytes(raw_bytes)
+
+    try:
+        dicom_meta = None
+        if is_dicom_file(temp_file):
+            _, dicom_meta, converted_jpg = parse_dicom_file(temp_file)
+            input_path = converted_jpg
+        else:
+            input_path = temp_file
+
+        img_tensor = preprocess_image(input_path)
+        res = run_multi_model_comparison(
+            image_tensor=img_tensor,
+            original_image_path=input_path,
+            base_filename=f"{scan_id}.jpg",
+            generate_cams=(explain.lower() in ["true", "1", "yes"])
+        )
+
+        cam_b64 = None
+        if res.get("primary_gradcam_overlay_url"):
+            cam_path = FLASK_APP_DIR / res["primary_gradcam_overlay_url"].lstrip("/")
+            if cam_path.exists():
+                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
+
+        res["scan_id"] = scan_id
+        res["gradcam_overlay_b64"] = cam_b64
+        res["dicom_metadata"] = dicom_meta
+        return res
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(exc)})
+    finally:
+        if temp_file.exists():
+            temp_file.unlink(missing_ok=True)
+
+
+# Mount Gradio onto FastAPI root
+app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", 7860)))
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
+
