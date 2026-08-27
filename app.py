@@ -286,23 +286,15 @@ with gr.Blocks(theme=custom_theme, title="Pneumonia Diagnostic Hub • AI Radiol
 
 
 # ─── FastAPI REST API Engine ──────────────────────────────────────────────────
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 import base64
 
-fastapi_app = FastAPI(title="Pneumonia Hub Inference Engine")
-fastapi_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+api_router = APIRouter()
 
 
-@fastapi_app.get("/hub_api/health")
-async def health_api():
+@api_router.get("/hub_api/health")
+def health_api():
     return {
         "status": "healthy",
         "service": "Pneumonia-Diagnostic-Hub-HF-Engine",
@@ -310,7 +302,7 @@ async def health_api():
     }
 
 
-@fastapi_app.post("/hub_api/predict")
+@api_router.post("/hub_api/predict")
 @GPU_DECORATOR
 def predict_api_endpoint(
     file: UploadFile = File(...),
@@ -363,7 +355,7 @@ def predict_api_endpoint(
             temp_file.unlink(missing_ok=True)
 
 
-@fastapi_app.post("/hub_api/compare")
+@api_router.post("/hub_api/compare")
 @GPU_DECORATOR
 def compare_api_endpoint(
     file: UploadFile = File(...),
@@ -411,18 +403,14 @@ def compare_api_endpoint(
             temp_file.unlink(missing_ok=True)
 
 
-
-
+# Mount REST API router directly onto Gradio's internal FastAPI app
+demo.app.include_router(api_router)
 demo.queue()
 
-# Mount Gradio onto FastAPI root
-app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+app = demo.app
 
 if __name__ == "__main__":
-    import uvicorn
-    # Hugging Face ZeroGPU proxy binds to 7860 and assigns GRADIO_SERVER_PORT for the application process
-    server_port = int(os.environ.get("GRADIO_SERVER_PORT", os.environ.get("PORT", 7860)))
-    server_name = os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0")
-    uvicorn.run(app, host=server_name, port=server_port)
+    demo.launch()
+
 
 
