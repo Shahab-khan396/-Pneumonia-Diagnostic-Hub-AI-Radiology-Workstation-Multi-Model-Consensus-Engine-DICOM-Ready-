@@ -312,7 +312,7 @@ async def health_api():
 
 @fastapi_app.post("/hub_api/predict")
 @GPU_DECORATOR
-async def predict_api_endpoint(
+def predict_api_endpoint(
     file: UploadFile = File(...),
     model_choice: str = Form("mobilenet"),
     explain: str = Form("true"),
@@ -322,7 +322,7 @@ async def predict_api_endpoint(
     temp_dir = Path(tempfile.gettempdir()) / "pneumonia_hub"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    raw_bytes = await file.read()
+    raw_bytes = file.file.read()
     temp_file = temp_dir / f"{scan_id}_{file.filename or 'scan.jpg'}"
     temp_file.write_bytes(raw_bytes)
 
@@ -365,7 +365,7 @@ async def predict_api_endpoint(
 
 @fastapi_app.post("/hub_api/compare")
 @GPU_DECORATOR
-async def compare_api_endpoint(
+def compare_api_endpoint(
     file: UploadFile = File(...),
     explain: str = Form("true"),
     generate_report: str = Form("false"),
@@ -374,7 +374,7 @@ async def compare_api_endpoint(
     temp_dir = Path(tempfile.gettempdir()) / "pneumonia_hub"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    raw_bytes = await file.read()
+    raw_bytes = file.file.read()
     temp_file = temp_dir / f"{scan_id}_{file.filename or 'scan.jpg'}"
     temp_file.write_bytes(raw_bytes)
 
@@ -412,10 +412,17 @@ async def compare_api_endpoint(
 
 
 
+
+demo.queue()
+
 # Mount Gradio onto FastAPI root
 app = gr.mount_gradio_app(fastapi_app, demo, path="/")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
+    # Hugging Face ZeroGPU proxy binds to 7860 and assigns GRADIO_SERVER_PORT for the application process
+    server_port = int(os.environ.get("GRADIO_SERVER_PORT", os.environ.get("PORT", 7860)))
+    server_name = os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0")
+    uvicorn.run(app, host=server_name, port=server_port)
+
 
