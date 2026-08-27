@@ -13,6 +13,14 @@ from tensorflow.keras.models import load_model
 from config import BASE_DIR, AVAILABLE_MODELS, CLASS_LABELS, DEFAULT_MODEL, UPLOAD_FOLDER
 from core.gradcam import compute_gradcam_heatmap, save_gradcam_visualizations
 
+# ZeroGPU decorator hook
+try:
+    import spaces
+    GPU_CALL = spaces.GPU
+except Exception:
+    def GPU_CALL(func):
+        return func
+
 
 class ModelManager:
     """
@@ -69,6 +77,7 @@ class ModelManager:
                 self._models_cache[model_id] = loaded
             return self._models_cache[model_id]
 
+    @GPU_CALL
     def predict(
         self,
         model_id: str,

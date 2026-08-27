@@ -3,6 +3,18 @@ import sys
 import importlib.util
 from pathlib import Path
 
+# Hugging Face ZeroGPU compatibility hook
+try:
+    import spaces
+    @spaces.GPU
+    def spaces_gpu_init():
+        """Ensure Hugging Face ZeroGPU runtime discovers an active GPU hook on startup."""
+        return True
+
+    spaces_gpu_init()
+except Exception:
+    pass
+
 ROOT_DIR = Path(__file__).resolve().parent
 FLASK_APP_DIR = ROOT_DIR / "Flask Application"
 
