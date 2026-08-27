@@ -66,121 +66,135 @@ def analyze_radiograph(
     temp_dir = Path(tempfile.gettempdir()) / "pneumonia_hub"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    # Resolve image source and handle DICOM if applicable
-    dicom_meta = {}
-    if isinstance(image_input, str) and Path(image_input).exists():
-        input_path = Path(image_input)
-        if input_path.suffix.lower() == ".dcm" or is_dicom_file(input_path):
-            img_bgr, dicom_meta, orig_save_path = parse_dicom_file(
-                input_path, output_jpg_path=temp_dir / f"{scan_id}_source.jpg"
-            )
-        else:
-            orig_save_path = input_path
-            img_bgr = cv2.imread(str(input_path))
-    elif isinstance(image_input, np.ndarray):
-        img_bgr = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR) if image_input.ndim == 3 else cv2.cvtColor(image_input, cv2.COLOR_GRAY2BGR)
-        orig_save_path = temp_dir / f"{scan_id}_source.jpg"
-        cv2.imwrite(str(orig_save_path), img_bgr)
-    else:
-        orig_save_path = temp_dir / f"{scan_id}_source.jpg"
-        img_bgr = cv2.imread(str(orig_save_path))
-
-    # Preprocess for CNN
     try:
+        # Handle dict format returned by modern Gradio components
+        if isinstance(image_input, dict):
+            image_input = image_input.get("path") or image_input.get("url") or image_input.get("name")
+
+        # Resolve image source and handle DICOM if applicable
+        dicom_meta = {}
+        if isinstance(image_input, str) and Path(image_input).exists():
+            input_path = Path(image_input)
+            if input_path.suffix.lower() == ".dcm" or is_dicom_file(input_path):
+                img_bgr, dicom_meta, orig_save_path = parse_dicom_file(
+                    input_path, output_jpg_path=temp_dir / f"{scan_id}_source.jpg"
+                )
+            else:
+                orig_save_path = input_path
+                img_bgr = cv2.imread(str(input_path))
+        elif isinstance(image_input, np.ndarray):
+            img_bgr = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR) if image_input.ndim == 3 else cv2.cvtColor(image_input, cv2.COLOR_GRAY2BGR)
+            orig_save_path = temp_dir / f"{scan_id}_source.jpg"
+            cv2.imwrite(str(orig_save_path), img_bgr)
+        else:
+            orig_save_path = temp_dir / f"{scan_id}_source.jpg"
+            img_bgr = cv2.imread(str(orig_save_path)) if orig_save_path.exists() else None
+
+        if img_bgr is None:
+            return (
+                "❌ **Error:** Unable to decode or load the input radiograph. Please try re-uploading the file.",
+                None, None, {}, [], None
+            )
+
+        # Preprocess for CNN
         img_tensor = preprocess_image(orig_save_path)
-    except Exception as e:
-        return f"❌ Preprocessing Error: {str(e)}", None, None, {}, [], None
 
-    # Model Execution (Single vs Ensemble)
-    model_manager = get_model_manager()
-    is_ensemble = (model_selection == "Multi-Model Consensus Ensemble (All 4 Models)")
+        # Model Execution (Single vs Ensemble)
+        model_manager = get_model_manager()
+        is_ensemble = (model_selection == "Multi-Model Consensus Ensemble (All 4 Models)")
 
-    if is_ensemble:
-        result = run_multi_model_comparison(
-            image_tensor=img_tensor,
-            original_image_path=orig_save_path,
-            base_filename=f"{scan_id}",
-            generate_cams=enable_gradcam
-        )
-        verdict = result["consensus_verdict"]
-        confidence = result["consensus_confidence"]
-        probs = {
-            "NORMAL": result["consensus_probabilities"]["NORMAL"] / 100.0,
-            "PNEUMONIA": result["consensus_probabilities"]["PNEUMONIA"] / 100.0,
-        }
-        status_md = f"""### 🩺 Consensus Verdict: **{verdict}**
+        if is_ensemble:
+            result = run_multi_model_comparison(
+                image_tensor=img_tensor,
+                original_image_path=orig_save_path,
+                base_filename=f"{scan_id}",
+                generate_cams=enable_gradcam
+            )
+            verdict = result["consensus_verdict"]
+            confidence = result["consensus_confidence"]
+            probs = {
+                "NORMAL": result["consensus_probabilities"]["NORMAL"] / 100.0,
+                "PNEUMONIA": result["consensus_probabilities"]["PNEUMONIA"] / 100.0,
+            }
+            status_md = f"""### 🩺 Consensus Verdict: **{verdict}**
 **Confidence:** `{confidence:.2f}%` • **Agreement:** `{result['agreement_text']}`
 **Latency:** `{result['total_inference_time_ms']} ms` across 4 deep learning backbones
 """
-        breakdown_table = [
-            [m["name"], m["parameters"], f"{m['weight']*100:.0f}%", m["prediction"], f"{m['confidence']:.2f}%", f"{m['inference_time_ms']} ms"]
-            for m in result["models_breakdown"]
-        ]
-        gradcam_path = result.get("primary_gradcam_overlay_url")
-    else:
-        # Map choice to model ID
-        model_id_map = {
-            "MobileNetV2 (Recommended • 87.5% Acc)": "mobilenet",
-            "ResNet50 (Deep Residual • 25.6M Params)": "resnet50",
-            "EfficientNetB0 (Compound Scaling)": "efficientnet",
-            "VGG19 (19-Layer Baseline)": "VGG19",
-        }
-        model_id = model_id_map.get(model_selection, DEFAULT_MODEL)
-        result = model_manager.predict(
-            model_id=model_id,
-            image_tensor=img_tensor,
-            generate_cam=enable_gradcam,
-            original_image_path=orig_save_path,
-            base_filename=f"{scan_id}_{model_id}"
-        )
-        verdict = result["prediction"]
-        confidence = result["confidence"]
-        probs = {
-            "NORMAL": result["probabilities"]["NORMAL"] / 100.0,
-            "PNEUMONIA": result["probabilities"]["PNEUMONIA"] / 100.0,
-        }
-        status_md = f"""### 🩺 Diagnostic Verdict: **{verdict}**
+            breakdown_table = [
+                [m["name"], m["parameters"], f"{m['weight']*100:.0f}%", m["prediction"], f"{m['confidence']:.2f}%", f"{m['inference_time_ms']} ms"]
+                for m in result["models_breakdown"]
+            ]
+            gradcam_path = result.get("primary_gradcam_overlay_url")
+        else:
+            # Map choice to model ID
+            model_id_map = {
+                "MobileNetV2 (Recommended • 87.5% Acc)": "mobilenet",
+                "ResNet50 (Deep Residual • 25.6M Params)": "resnet50",
+                "EfficientNetB0 (Compound Scaling)": "efficientnet",
+                "VGG19 (19-Layer Baseline)": "VGG19",
+            }
+            model_id = model_id_map.get(model_selection, DEFAULT_MODEL)
+            result = model_manager.predict(
+                model_id=model_id,
+                image_tensor=img_tensor,
+                generate_cam=enable_gradcam,
+                original_image_path=orig_save_path,
+                base_filename=f"{scan_id}_{model_id}"
+            )
+            verdict = result["prediction"]
+            confidence = result["confidence"]
+            probs = {
+                "NORMAL": result["probabilities"]["NORMAL"] / 100.0,
+                "PNEUMONIA": result["probabilities"]["PNEUMONIA"] / 100.0,
+            }
+            status_md = f"""### 🩺 Diagnostic Verdict: **{verdict}**
 **Confidence:** `{confidence:.2f}%` • **Model:** `{result['model_name']}`
 **Inference Latency:** `{result['inference_time_ms']} ms`
 """
-        breakdown_table = [
-            [result["model_name"], result["model_parameters"], "100%", verdict, f"{confidence:.2f}%", f"{result['inference_time_ms']} ms"]
-        ]
-        gradcam_path = result.get("gradcam_overlay_url")
+            breakdown_table = [
+                [result["model_name"], result["model_parameters"], "100%", verdict, f"{confidence:.2f}%", f"{result['inference_time_ms']} ms"]
+            ]
+            gradcam_path = result.get("gradcam_overlay_url")
 
-    # Grad-CAM visualization image
-    cam_display = None
-    if gradcam_path:
-        full_cam_path = FLASK_APP_DIR / gradcam_path.lstrip("/")
-        if full_cam_path.exists():
-            cam_display = cv2.cvtColor(cv2.imread(str(full_cam_path)), cv2.COLOR_BGR2RGB)
+        # Grad-CAM visualization image
+        cam_display = None
+        if gradcam_path:
+            full_cam_path = FLASK_APP_DIR / gradcam_path.lstrip("/")
+            if full_cam_path.exists():
+                cam_display = cv2.cvtColor(cv2.imread(str(full_cam_path)), cv2.COLOR_BGR2RGB)
 
-    orig_display = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        orig_display = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-    # Generate Official Clinical PDF Report
-    pdf_report_path = None
-    try:
-        patient_info = {
-            "patient_id": patient_id or f"PT-{scan_id}",
-            "age": patient_age or "45",
-            "gender": patient_gender or "Unspecified",
-            "clinical_indication": "Suspected pulmonary consolidation / acute respiratory infection",
-            "dicom_metadata": dicom_meta
-        }
-        full_overlay_p = (FLASK_APP_DIR / gradcam_path.lstrip("/")) if gradcam_path else None
-        pdf_path = generate_clinical_pdf_report(
-            scan_id=scan_id,
-            prediction_data=result,
-            original_image_path=orig_save_path,
-            gradcam_overlay_path=full_overlay_p if (full_overlay_p and full_overlay_p.exists()) else None,
-            patient_metadata=patient_info,
-            output_dir=temp_dir
-        )
-        pdf_report_path = str(pdf_path)
-    except Exception as e:
-        print(f"[!] PDF generation warning: {e}")
+        # Generate Official Clinical PDF Report
+        pdf_report_path = None
+        try:
+            patient_info = {
+                "patient_id": patient_id or f"PT-{scan_id}",
+                "age": patient_age or "45",
+                "gender": patient_gender or "Unspecified",
+                "clinical_indication": "Suspected pulmonary consolidation / acute respiratory infection",
+                "dicom_metadata": dicom_meta
+            }
+            full_overlay_p = (FLASK_APP_DIR / gradcam_path.lstrip("/")) if gradcam_path else None
+            pdf_path = generate_clinical_pdf_report(
+                scan_id=scan_id,
+                prediction_data=result,
+                original_image_path=orig_save_path,
+                gradcam_overlay_path=full_overlay_p if (full_overlay_p and full_overlay_p.exists()) else None,
+                patient_metadata=patient_info,
+                output_dir=temp_dir
+            )
+            pdf_report_path = str(pdf_path)
+        except Exception as e:
+            print(f"[!] PDF generation warning: {e}")
 
-    return status_md, orig_display, cam_display, probs, breakdown_table, pdf_report_path
+        return status_md, orig_display, cam_display, probs, breakdown_table, pdf_report_path
+
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return f"❌ **Inference Error:** {str(exc)}", None, None, {}, [], None
+
 
 
 # Define pre-packaged sample helper
