@@ -11,4 +11,3 @@ werkzeug
 pytest
 reportlab
 pydicom
-gradio
