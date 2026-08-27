@@ -32,7 +32,7 @@ from config import AVAILABLE_MODELS, DEFAULT_MODEL, SAMPLES_CATALOG
 from core.preprocessor import preprocess_image
 from core.model_manager import get_model_manager
 from core.ensemble import run_multi_model_comparison
-from core.dicom_parser import is_dicom_file, parse_dicom_bytes
+from core.dicom_parser import is_dicom_file, parse_dicom_file, parse_dicom_bytes
 from core.report_generator import generate_clinical_pdf_report
 from core.sample_manager import ensure_samples_generated, get_sample_info
 
@@ -70,12 +70,10 @@ def analyze_radiograph(
     dicom_meta = {}
     if isinstance(image_input, str) and Path(image_input).exists():
         input_path = Path(image_input)
-        if input_path.suffix.lower() == ".dcm" or is_dicom_file(input_path.read_bytes()[:132]):
-            dcm_res = parse_dicom_bytes(input_path.read_bytes())
-            img_bgr = cv2.imdecode(np.frombuffer(dcm_res["jpeg_bytes"], np.uint8), cv2.IMREAD_COLOR)
-            dicom_meta = dcm_res.get("metadata", {})
-            orig_save_path = temp_dir / f"{scan_id}_source.jpg"
-            cv2.imwrite(str(orig_save_path), img_bgr)
+        if input_path.suffix.lower() == ".dcm" or is_dicom_file(input_path):
+            img_bgr, dicom_meta, orig_save_path = parse_dicom_file(
+                input_path, output_jpg_path=temp_dir / f"{scan_id}_source.jpg"
+            )
         else:
             orig_save_path = input_path
             img_bgr = cv2.imread(str(input_path))

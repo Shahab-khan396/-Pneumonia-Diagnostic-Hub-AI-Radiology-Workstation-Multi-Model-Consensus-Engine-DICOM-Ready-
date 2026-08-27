@@ -116,3 +116,25 @@ def parse_dicom_file(
     cv2.imwrite(str(output_jpg_path), img_bgr)
 
     return img_bgr, metadata, output_jpg_path
+
+
+def parse_dicom_bytes(data: bytes, output_jpg_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Parse DICOM dataset directly from raw bytes."""
+    import tempfile
+    import uuid
+    temp_dcm = Path(tempfile.gettempdir()) / f"temp_{uuid.uuid4().hex[:8]}.dcm"
+    temp_dcm.write_bytes(data)
+    try:
+        img_bgr, metadata, saved_jpg = parse_dicom_file(temp_dcm, output_jpg_path)
+        _, jpeg_bytes = cv2.imencode(".jpg", img_bgr)
+        return {
+            "metadata": metadata,
+            "jpeg_bytes": jpeg_bytes.tobytes(),
+            "saved_path": saved_jpg
+        }
+    finally:
+        if temp_dcm.exists():
+            try:
+                temp_dcm.unlink(missing_ok=True)
+            except Exception:
+                pass
