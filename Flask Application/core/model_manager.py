@@ -77,7 +77,6 @@ class ModelManager:
                 self._models_cache[model_id] = loaded
             return self._models_cache[model_id]
 
-    @GPU_CALL
     def predict(
         self,
         model_id: str,
@@ -86,6 +85,7 @@ class ModelManager:
         original_image_path: Optional[Union[str, Path]] = None,
         base_filename: Optional[str] = None
     ) -> Dict[str, Any]:
+
         """
         Run inference using the specified model and optionally generate Grad-CAM heatmaps.
         
