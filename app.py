@@ -301,7 +301,7 @@ fastapi_app.add_middleware(
 )
 
 
-@fastapi_app.get("/api/v1/health")
+@fastapi_app.get("/hub_api/health")
 async def health_api():
     return {
         "status": "healthy",
@@ -310,7 +310,7 @@ async def health_api():
     }
 
 
-@fastapi_app.post("/api/v1/predict")
+@fastapi_app.post("/hub_api/predict")
 @GPU_DECORATOR
 async def predict_api_endpoint(
     file: UploadFile = File(...),
@@ -363,7 +363,7 @@ async def predict_api_endpoint(
             temp_file.unlink(missing_ok=True)
 
 
-@fastapi_app.post("/api/v1/compare")
+@fastapi_app.post("/hub_api/compare")
 @GPU_DECORATOR
 async def compare_api_endpoint(
     file: UploadFile = File(...),
@@ -409,6 +409,7 @@ async def compare_api_endpoint(
     finally:
         if temp_file.exists():
             temp_file.unlink(missing_ok=True)
+
 
 
 # Mount Gradio onto FastAPI root
