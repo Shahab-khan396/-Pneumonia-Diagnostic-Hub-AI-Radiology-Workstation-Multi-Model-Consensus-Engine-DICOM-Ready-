@@ -2,34 +2,62 @@
 __pycache__/
 *.py[codz]
 *$py.class
-
-# C extensions
 *.so
 
-# Environments
+# Environments & Secrets
 .env
-.envrc
+.env.*
+*.env
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Local Automation & Deployment Scripts
+upload-script.py
+
+# Virtual Environments
 .venv/
 env/
 venv/
 ENV/
 
-# Testing
+# Node.js & Frontend Builds
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+.vercel/
+frontend/.vercel/
+
+# Testing & Coverage
 .pytest_cache/
 .coverage
 htmlcov/
 
-# Dynamic User Uploads (do not commit test uploads)
+# Dynamic User Uploads & Generated Reports (preserve .gitkeep)
 Flask Application/static/uploads/*
 !Flask Application/static/uploads/.gitkeep
+backend/static/reports/*
+!backend/static/reports/.gitkeep
+backend/static/samples/*
+!backend/static/samples/.gitkeep
 static/uploads/*
 !static/uploads/.gitkeep
+static/reports/*
+!static/reports/.gitkeep
+static/samples/*
+!static/samples/.gitkeep
 
 # Large Archives & Local Datasets
 archive.zip
 chest_xray/
 
-# IDE
+# IDE & OS
 .vscode/
 .idea/
 .ipynb_checkpoints/
+*.swp
+.DS_Store
+Thumbs.db
