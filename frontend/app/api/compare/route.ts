@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
       headers['Authorization'] = `Bearer ${INTERNAL_API_KEY}`;
     }
 
-    const response = await fetch(`${FASTAPI_URL}/api/v1/compare`, {
+    const targetUrl = FASTAPI_URL.endsWith('/') ? `${FASTAPI_URL}hub_api/compare` : `${FASTAPI_URL}/hub_api/compare`;
+
+    const response = await fetch(targetUrl, {
       method: 'POST',
       body: formData,
       headers,

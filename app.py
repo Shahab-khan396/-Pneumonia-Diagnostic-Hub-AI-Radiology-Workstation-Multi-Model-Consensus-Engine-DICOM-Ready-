@@ -302,12 +302,14 @@ with gr.Blocks(theme=custom_theme, title="Pneumonia Diagnostic Hub • AI Radiol
 # ─── FastAPI REST API Engine ──────────────────────────────────────────────────
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import base64
 
 api_router = APIRouter()
 
 
 @api_router.get("/hub_api/health")
+@api_router.get("/api/v1/health")
 def health_api():
     return {
         "status": "healthy",
@@ -317,6 +319,7 @@ def health_api():
 
 
 @api_router.post("/hub_api/predict")
+@api_router.post("/api/v1/predict")
 @GPU_DECORATOR
 def predict_api_endpoint(
     file: UploadFile = File(...),
@@ -370,6 +373,7 @@ def predict_api_endpoint(
 
 
 @api_router.post("/hub_api/compare")
+@api_router.post("/api/v1/compare")
 @GPU_DECORATOR
 def compare_api_endpoint(
     file: UploadFile = File(...),
@@ -416,6 +420,15 @@ def compare_api_endpoint(
         if temp_file.exists():
             temp_file.unlink(missing_ok=True)
 
+
+# Add CORS middleware to Gradio FastAPI app
+demo.app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount REST API router directly onto Gradio's internal FastAPI app
 demo.app.include_router(api_router)
