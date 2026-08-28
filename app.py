@@ -26,8 +26,12 @@ try:
     import spaces
     GPU_DECORATOR = spaces.GPU
 except Exception:
-    def GPU_DECORATOR(func):
-        return func
+    def GPU_DECORATOR(func=None, **kwargs):
+        if func is not None and callable(func):
+            return func
+        def decorator(f):
+            return f
+        return decorator
 
 from config import (
     BASE_DIR,
@@ -340,10 +344,41 @@ def download_report(filename: str):
     return FileResponse(path=str(file_path), media_type="application/pdf", filename=filename)
 
 
-# Include router in FastAPI application
-app.include_router(api_router)
+# ─── Gradio Interface & FastAPI Application Binding ───────────────────────────
+import gradio as gr
+
+with gr.Blocks(
+    title="Pneumonia Diagnostic Hub • AI Engine",
+    theme=gr.themes.Soft(primary_hue="cyan", neutral_hue="slate")
+) as demo:
+    gr.Markdown(
+        """
+        # 🫁 Pneumonia Diagnostic Hub • High-Performance AI Engine
+        
+        ### 🟢 Engine Status: **Operational** (ZeroGPU Enabled)
+        - 🌐 **Interactive Web Workstation**: [https://pneumonia-dignosis-hub.vercel.app/](https://pneumonia-dignosis-hub.vercel.app/)
+        - 📖 **Interactive OpenAPI / Swagger Documentation**: [/docs](/docs)
+        - ⚡ **Multi-Model Consensus Endpoint**: `POST /hub_api/compare`
+        - 🔬 **Single-Model Inference Endpoint**: `POST /hub_api/predict`
+        - 🏥 **Health Check Endpoint**: `GET /hub_api/health`
+        """
+    )
+
+# Add CORS to Gradio FastAPI application
+demo.app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include custom API router
+demo.app.include_router(api_router)
+demo.queue()
+
+app = demo.app
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=True)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
 
