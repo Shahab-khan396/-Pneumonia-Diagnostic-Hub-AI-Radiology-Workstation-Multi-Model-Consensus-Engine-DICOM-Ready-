@@ -363,9 +363,12 @@ with gr.Blocks(
         """
     )
 
-# Mount Gradio app onto FastAPI
-app = gr.mount_gradio_app(app, demo, path="/")
+# ─── Mount Gradio Portal at /portal ──────────────────────────────────────────
+# Mounting at /portal ensures all /hub_api, /docs, and /static routes are served
+# directly by FastAPI without SvelteKit HTML catch-all interception.
+app = gr.mount_gradio_app(app, demo, path="/portal")
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
 
