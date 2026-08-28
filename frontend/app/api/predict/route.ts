@@ -1,58 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Client } from '@gradio/client';
 
-// Server-side only URL: Never exposed to client browser
-const FASTAPI_URL = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
-const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY || process.env.HF_TOKEN || '';
+const SPACE_ID = process.env.FASTAPI_URL || process.env.NEXT_PUBLIC_HF_SPACE_URL || 'Shahabkhan396/pneumonia-hub';
+const HF_TOKEN = process.env.HF_TOKEN || '';
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
+    const file = formData.get('file') as File | null;
+    const sample_id = (formData.get('sample_id') as string) || '';
+    const model_choice = (formData.get('model_choice') as string) || 'mobilenet';
+    const explain = formData.get('explain') === 'true';
+    const generate_report = formData.get('generate_report') === 'true';
+    const patient_id = (formData.get('patient_id') as string) || '';
+    const patient_age = (formData.get('patient_age') as string) || '';
+    const patient_gender = (formData.get('patient_gender') as string) || '';
+    const clinical_history = (formData.get('clinical_history') as string) || '';
+    const referring_physician = (formData.get('referring_physician') as string) || '';
 
-    const headers: Record<string, string> = {};
-    if (INTERNAL_API_KEY) {
-      headers['X-API-Key'] = INTERNAL_API_KEY;
-      headers['Authorization'] = `Bearer ${INTERNAL_API_KEY}`;
-    }
+    // Connect to Gradio Space Client
+    const target = SPACE_ID.includes('/') && !SPACE_ID.startsWith('http')
+      ? SPACE_ID
+      : (SPACE_ID.replace('https://', '').replace('.hf.space', '').replace('/', '/'));
 
-    const targetUrl = FASTAPI_URL.endsWith('/') ? `${FASTAPI_URL}hub_api/predict` : `${FASTAPI_URL}/hub_api/predict`;
-
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      body: formData,
-      headers,
+    const client = await Client.connect(SPACE_ID, {
+      hf_token: HF_TOKEN && HF_TOKEN.startsWith('hf_') ? (HF_TOKEN as `hf_${string}`) : undefined,
     });
 
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      const text = await response.text();
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Backend returned HTTP ${response.status} (${response.statusText}). Please check your Hugging Face Space status and ensure it is Public or building is complete.`,
-          raw_response: text.slice(0, 300),
-        },
-        { status: response.status || 502 }
-      );
-    }
+    const fileBlob = file ? file : null;
 
-    const data = await response.json();
+    const result = await client.predict('/predict', [
+      fileBlob,
+      sample_id,
+      model_choice,
+      explain,
+      generate_report,
+      patient_id,
+      patient_age,
+      patient_gender,
+      clinical_history,
+      referring_physician,
+    ]);
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { success: false, error: data.detail || data.error || 'Inference failed on backend service.' },
-        { status: response.status }
-      );
-    }
-
+    const data: any = result.data;
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('Error proxying to FastAPI predict endpoint:', error);
+    console.error('Error proxying to Gradio predict endpoint:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Could not connect to FastAPI backend service. Ensure it is running.',
+        error: error.message || 'Could not connect to AI backend service. Ensure Hugging Face Space is running.',
       },
       { status: 502 }
     );
   }
 }
+

@@ -344,7 +344,162 @@ def download_report(filename: str):
     return FileResponse(path=str(file_path), media_type="application/pdf", filename=filename)
 
 
-# ─── Gradio Interface & FastAPI Application Binding ───────────────────────────
+# ─── Gradio Interface & ZeroGPU API Functions ─────────────────────────────────
+@GPU_DECORATOR
+def gradio_predict_api(
+    file_obj: Any,
+    sample_id: str,
+    model_choice: str,
+    explain: bool,
+    generate_report: bool,
+    patient_id: str,
+    patient_age: str,
+    patient_gender: str,
+    clinical_history: str,
+    referring_physician: str,
+) -> dict:
+    scan_id = uuid.uuid4().hex[:8].upper()
+    try:
+        if sample_id and sample_id in SAMPLES_CATALOG:
+            sample_meta = get_sample_info(sample_id)
+            if not sample_meta:
+                return {"success": False, "error": "Sample study not found."}
+            input_path = sample_meta["path"]
+        elif file_obj is not None:
+            input_path = Path(file_obj if isinstance(file_obj, str) else file_obj.name)
+            if not input_path.exists():
+                return {"success": False, "error": "Uploaded file not found."}
+        else:
+            return {"success": False, "error": "Either file or sample_id is required."}
+
+        dicom_meta = None
+        if is_dicom_file(input_path):
+            _, dicom_meta, converted_jpg = parse_dicom_file(input_path)
+            input_path = converted_jpg
+
+        img_tensor = preprocess_image(input_path)
+        manager = get_model_manager()
+
+        res = manager.predict(
+            model_id=model_choice or "mobilenet",
+            image_tensor=img_tensor,
+            generate_cam=explain,
+            original_image_path=input_path,
+            base_filename=f"{scan_id}_{model_choice or 'mobilenet'}.jpg"
+        )
+
+        cam_b64 = None
+        if res.get("has_gradcam") and res.get("gradcam_overlay_url"):
+            cam_path = STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
+            if cam_path.exists():
+                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
+
+        report_url = None
+        if generate_report:
+            patient_meta = {
+                "patient_id": patient_id or (dicom_meta.get("patient_id") if dicom_meta else f"PT-{scan_id}"),
+                "patient_age": patient_age or (dicom_meta.get("patient_age") if dicom_meta else "N/A"),
+                "patient_gender": patient_gender or (dicom_meta.get("patient_gender") if dicom_meta else "N/A"),
+                "clinical_history": clinical_history or "Chest screening for respiratory infection / pneumonia.",
+                "referring_physician": referring_physician or "Staff Radiologist",
+            }
+            gradcam_p = (STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")) if res.get("gradcam_overlay_url") else None
+            report_pdf_path = generate_clinical_pdf_report(
+                scan_id=scan_id,
+                prediction_data=res,
+                original_image_path=input_path,
+                gradcam_overlay_path=gradcam_p,
+                patient_metadata=patient_meta,
+                output_dir=UPLOAD_FOLDER
+            )
+            report_url = f"/static/uploads/{report_pdf_path.name}"
+
+        res["success"] = True
+        res["scan_id"] = scan_id
+        res["gradcam_overlay_b64"] = cam_b64
+        res["report_pdf_url"] = report_url
+        res["dicom_metadata"] = dicom_meta
+        return res
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+@GPU_DECORATOR
+def gradio_compare_api(
+    file_obj: Any,
+    sample_id: str,
+    explain: bool,
+    generate_report: bool,
+    patient_id: str,
+    patient_age: str,
+    patient_gender: str,
+    clinical_history: str,
+    referring_physician: str,
+) -> dict:
+    scan_id = uuid.uuid4().hex[:8].upper()
+    try:
+        if sample_id and sample_id in SAMPLES_CATALOG:
+            sample_meta = get_sample_info(sample_id)
+            if not sample_meta:
+                return {"success": False, "error": "Sample study not found."}
+            input_path = sample_meta["path"]
+        elif file_obj is not None:
+            input_path = Path(file_obj if isinstance(file_obj, str) else file_obj.name)
+            if not input_path.exists():
+                return {"success": False, "error": "Uploaded file not found."}
+        else:
+            return {"success": False, "error": "Either file or sample_id is required."}
+
+        dicom_meta = None
+        if is_dicom_file(input_path):
+            _, dicom_meta, converted_jpg = parse_dicom_file(input_path)
+            input_path = converted_jpg
+
+        img_tensor = preprocess_image(input_path)
+
+        res = run_multi_model_comparison(
+            image_tensor=img_tensor,
+            original_image_path=input_path,
+            base_filename=f"{scan_id}.jpg",
+            generate_cams=explain
+        )
+
+        cam_b64 = None
+        if res.get("primary_gradcam_overlay_url"):
+            cam_path = STATIC_DIR / res["primary_gradcam_overlay_url"].replace("/static/", "").lstrip("/")
+            if cam_path.exists():
+                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
+
+        report_url = None
+        if generate_report:
+            patient_meta = {
+                "patient_id": patient_id or (dicom_meta.get("patient_id") if dicom_meta else f"PT-{scan_id}"),
+                "patient_age": patient_age or (dicom_meta.get("patient_age") if dicom_meta else "N/A"),
+                "patient_gender": patient_gender or (dicom_meta.get("patient_gender") if dicom_meta else "N/A"),
+                "clinical_history": clinical_history or "Chest screening for respiratory infection / pneumonia.",
+                "referring_physician": referring_physician or "Staff Radiologist",
+            }
+            gradcam_p = (STATIC_DIR / res["primary_gradcam_overlay_url"].replace("/static/", "").lstrip("/")) if res.get("primary_gradcam_overlay_url") else None
+            report_pdf_path = generate_clinical_pdf_report(
+                scan_id=scan_id,
+                prediction_data=res,
+                original_image_path=input_path,
+                gradcam_overlay_path=gradcam_p,
+                patient_metadata=patient_meta,
+                output_dir=UPLOAD_FOLDER
+            )
+            report_url = f"/static/uploads/{report_pdf_path.name}"
+
+        res["success"] = True
+        res["scan_id"] = scan_id
+        res["gradcam_overlay_b64"] = cam_b64
+        res["report_pdf_url"] = report_url
+        res["dicom_metadata"] = dicom_meta
+        return res
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
 import gradio as gr
 
 with gr.Blocks(
@@ -357,42 +512,51 @@ with gr.Blocks(
         
         ### 🟢 Engine Status: **Operational** (ZeroGPU Enabled)
         - 🌐 **Interactive Web Workstation**: [https://pneumonia-dignosis-hub.vercel.app/](https://pneumonia-dignosis-hub.vercel.app/)
-        - 📖 **Interactive OpenAPI / Swagger Documentation**: [/docs](/docs)
-        - ⚡ **Multi-Model Consensus Endpoint**: `POST /hub_api/compare`
-        - 🔬 **Single-Model Inference Endpoint**: `POST /hub_api/predict`
-        - 🏥 **Health Check Endpoint**: `GET /hub_api/health`
+        - ⚡ **Multi-Model Consensus API**: `POST /gradio_api/call/compare`
+        - 🔬 **Single-Model Inference API**: `POST /gradio_api/call/predict`
         """
     )
 
-# Attach CORS Middleware directly to demo.app
-demo.app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    with gr.Row(visible=False):
+        f_in = gr.File(label="Radiograph", type="filepath")
+        s_in = gr.Textbox(label="Sample ID", value="")
+        m_in = gr.Textbox(label="Model", value="mobilenet")
+        e_in = gr.Checkbox(label="Explain", value=True)
+        r_in = gr.Checkbox(label="Report", value=True)
+        pid_in = gr.Textbox(label="Patient ID", value="")
+        page_in = gr.Textbox(label="Patient Age", value="")
+        pgen_in = gr.Textbox(label="Patient Gender", value="")
+        phist_in = gr.Textbox(label="History", value="")
+        pphys_in = gr.Textbox(label="Physician", value="")
+        out_json = gr.JSON(label="Output")
 
-# Mount Static Files directly on demo.app
-demo.app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    btn_predict = gr.Button("Predict API", visible=False)
+    btn_predict.click(
+        fn=gradio_predict_api,
+        inputs=[f_in, s_in, m_in, e_in, r_in, pid_in, page_in, pgen_in, phist_in, pphys_in],
+        outputs=out_json,
+        api_name="predict"
+    )
 
-# ─── Direct Route Registration on demo.app ────────────────────────────────────
-# Using add_api_route binds directly to Gradio's FastAPI engine without router nesting issues
-demo.app.add_api_route("/hub_api/health", health_check, methods=["GET"])
-demo.app.add_api_route("/api/v1/health", health_check, methods=["GET"])
-demo.app.add_api_route("/hub_api/models", get_models_catalog, methods=["GET"])
-demo.app.add_api_route("/api/v1/models", get_models_catalog, methods=["GET"])
-demo.app.add_api_route("/hub_api/samples", get_samples_catalog, methods=["GET"])
-demo.app.add_api_route("/api/v1/samples", get_samples_catalog, methods=["GET"])
-demo.app.add_api_route("/hub_api/predict", predict_endpoint, methods=["POST"])
-demo.app.add_api_route("/api/v1/predict", predict_endpoint, methods=["POST"])
-demo.app.add_api_route("/hub_api/compare", compare_endpoint, methods=["POST"])
-demo.app.add_api_route("/api/v1/compare", compare_endpoint, methods=["POST"])
-demo.app.add_api_route("/hub_api/reports/{filename}", download_report, methods=["GET"])
-demo.app.add_api_route("/api/v1/report/{filename}", download_report, methods=["GET"])
+    btn_compare = gr.Button("Compare API", visible=False)
+    btn_compare.click(
+        fn=gradio_compare_api,
+        inputs=[f_in, s_in, e_in, r_in, pid_in, page_in, pgen_in, phist_in, pphys_in],
+        outputs=out_json,
+        api_name="compare"
+    )
+
+    btn_samples = gr.Button("Samples API", visible=False)
+    btn_samples.click(
+        fn=list_sample_catalog,
+        inputs=[],
+        outputs=out_json,
+        api_name="samples"
+    )
 
 demo.queue()
 app = demo.app
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)
+
