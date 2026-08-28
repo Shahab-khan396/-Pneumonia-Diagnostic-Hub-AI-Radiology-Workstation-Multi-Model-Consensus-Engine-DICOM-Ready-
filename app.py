@@ -344,7 +344,10 @@ def download_report(filename: str):
     return FileResponse(path=str(file_path), media_type="application/pdf", filename=filename)
 
 
-# ─── Gradio Interface & FastAPI Application Binding ───────────────────────────
+# Include custom API router on root FastAPI app
+app.include_router(api_router)
+
+# ─── Gradio Interface & Lifecycle Binding ─────────────────────────────────────
 import gradio as gr
 
 with gr.Blocks(
@@ -364,21 +367,9 @@ with gr.Blocks(
         """
     )
 
-# Add CORS to Gradio FastAPI application
-demo.app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Include custom API router
-demo.app.include_router(api_router)
-demo.queue()
-
-app = demo.app
+# Mount Gradio onto FastAPI app at /portal so /hub_api and /docs routes remain pure FastAPI
+app = gr.mount_gradio_app(app, demo, path="/portal")
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
-
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
