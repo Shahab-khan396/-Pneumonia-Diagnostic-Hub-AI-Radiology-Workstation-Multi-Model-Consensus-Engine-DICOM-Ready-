@@ -376,12 +376,23 @@ demo.app.add_middleware(
 # Mount Static Files directly on demo.app
 demo.app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# Include all REST API routes on demo.app
-demo.app.include_router(api_router)
-demo.queue()
+# ─── Direct Route Registration on demo.app ────────────────────────────────────
+# Using add_api_route binds directly to Gradio's FastAPI engine without router nesting issues
+demo.app.add_api_route("/hub_api/health", health_check, methods=["GET"])
+demo.app.add_api_route("/api/v1/health", health_check, methods=["GET"])
+demo.app.add_api_route("/hub_api/models", get_models_catalog, methods=["GET"])
+demo.app.add_api_route("/api/v1/models", get_models_catalog, methods=["GET"])
+demo.app.add_api_route("/hub_api/samples", get_samples_catalog, methods=["GET"])
+demo.app.add_api_route("/api/v1/samples", get_samples_catalog, methods=["GET"])
+demo.app.add_api_route("/hub_api/predict", predict_endpoint, methods=["POST"])
+demo.app.add_api_route("/api/v1/predict", predict_endpoint, methods=["POST"])
+demo.app.add_api_route("/hub_api/compare", compare_endpoint, methods=["POST"])
+demo.app.add_api_route("/api/v1/compare", compare_endpoint, methods=["POST"])
+demo.app.add_api_route("/hub_api/reports/{filename}", download_report, methods=["GET"])
+demo.app.add_api_route("/api/v1/report/{filename}", download_report, methods=["GET"])
 
+demo.queue()
 app = demo.app
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(demo.app, host="0.0.0.0", port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
