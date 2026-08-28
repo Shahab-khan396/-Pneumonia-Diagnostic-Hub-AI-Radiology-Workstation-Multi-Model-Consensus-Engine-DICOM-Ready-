@@ -10,3 +10,4 @@ pydicom>=2.4.4
 reportlab>=4.1.0
 python-dotenv>=1.0.0
 h5py>=3.10.0
+werkzeug>=3.0.0

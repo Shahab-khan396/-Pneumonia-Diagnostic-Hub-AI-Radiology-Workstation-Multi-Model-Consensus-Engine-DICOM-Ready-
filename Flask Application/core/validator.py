@@ -1,7 +1,14 @@
 import os
 import uuid
 from pathlib import Path
-from werkzeug.utils import secure_filename
+try:
+    from werkzeug.utils import secure_filename
+except ImportError:
+    def secure_filename(filename: str) -> str:
+        name = Path(filename).name
+        for ch in (' ', '\\', '/', ':', '*', '?', '"', '<', '>', '|'):
+            name = name.replace(ch, '_')
+        return name or "upload.jpg"
 from config import ALLOWED_EXTENSIONS, UPLOAD_FOLDER
 
 
