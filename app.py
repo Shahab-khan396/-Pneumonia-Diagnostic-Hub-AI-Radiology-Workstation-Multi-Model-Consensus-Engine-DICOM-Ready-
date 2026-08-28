@@ -196,8 +196,68 @@ def predict_endpoint(
             if cam_path.exists():
                 cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
 
+def _file_to_b64(path: Optional[Path], mime_type: str = "image/jpeg") -> Optional[str]:
+    if not path:
+        return None
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        encoded = base64.b64encode(p.read_bytes()).decode("utf-8")
+        return f"data:{mime_type};base64,{encoded}"
+    except Exception:
+        return None
+
+
+def _hydrate_base64_visualizations(res: dict, input_path: Optional[Path] = None, report_pdf_path: Optional[Path] = None):
+    # Overlay
+    if res.get("gradcam_overlay_url") and not res["gradcam_overlay_url"].startswith("data:"):
+        p = STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_overlay_url"] = b64
+            res["gradcam_overlay_b64"] = b64
+
+    # Primary Grad-CAM (Ensemble)
+    if res.get("primary_gradcam_overlay_url") and not res["primary_gradcam_overlay_url"].startswith("data:"):
+        p = STATIC_DIR / res["primary_gradcam_overlay_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_overlay_url"] = b64
+            res["primary_gradcam_overlay_url"] = b64
+            res["gradcam_overlay_b64"] = b64
+
+    # Heatmap
+    if res.get("gradcam_heatmap_url") and not res["gradcam_heatmap_url"].startswith("data:"):
+        p = STATIC_DIR / res["gradcam_heatmap_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_heatmap_url"] = b64
+
+    # Composite / Triad
+    if res.get("gradcam_composite_url") and not res["gradcam_composite_url"].startswith("data:"):
+        p = STATIC_DIR / res["gradcam_composite_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_composite_url"] = b64
+
+    # PDF Report
+    if report_pdf_path and Path(report_pdf_path).exists():
+        pdf_b64 = _file_to_b64(Path(report_pdf_path), "application/pdf")
+        if pdf_b64:
+            res["report_pdf_url"] = pdf_b64
+            res["report_pdf_b64"] = pdf_b64
+
+    # Original Image
+    if input_path and Path(input_path).exists():
+        orig_b64 = _file_to_b64(Path(input_path), "image/jpeg")
+        if orig_b64:
+            res["original_image_url"] = orig_b64
+
+
         # 6. Generate Clinical PDF Report if requested
         report_url = None
+        report_pdf_path = None
         if generate_report.lower() in ["true", "1", "yes"]:
             patient_meta = {
                 "patient_id": patient_id or (dicom_meta.get("patient_id") if dicom_meta else f"PT-{scan_id}"),
@@ -217,10 +277,11 @@ def predict_endpoint(
             )
             report_url = f"/static/uploads/{report_pdf_path.name}"
 
+        _hydrate_base64_visualizations(res, input_path=input_path, report_pdf_path=report_pdf_path)
         res["success"] = True
         res["scan_id"] = scan_id
-        res["gradcam_overlay_b64"] = cam_b64
-        res["report_pdf_url"] = report_url
+        if not res.get("report_pdf_url"):
+            res["report_pdf_url"] = report_url
         res["dicom_metadata"] = dicom_meta
         return res
 
@@ -299,6 +360,7 @@ def compare_endpoint(
 
         # 6. Generate Clinical PDF Report if requested
         report_url = None
+        report_pdf_path = None
         if generate_report.lower() in ["true", "1", "yes"]:
             patient_meta = {
                 "patient_id": patient_id or (dicom_meta.get("patient_id") if dicom_meta else f"PT-{scan_id}"),
@@ -318,10 +380,11 @@ def compare_endpoint(
             )
             report_url = f"/static/uploads/{report_pdf_path.name}"
 
+        _hydrate_base64_visualizations(res, input_path=input_path, report_pdf_path=report_pdf_path)
         res["success"] = True
         res["scan_id"] = scan_id
-        res["gradcam_overlay_b64"] = cam_b64
-        res["report_pdf_url"] = report_url
+        if not res.get("report_pdf_url"):
+            res["report_pdf_url"] = report_url
         res["dicom_metadata"] = dicom_meta
         return res
 
@@ -364,9 +427,9 @@ def gradio_predict_api(
             sample_meta = get_sample_info(sample_id)
             if not sample_meta:
                 return {"success": False, "error": "Sample study not found."}
-            input_path = sample_meta["path"]
+            input_path = Path(sample_meta["path"])
         elif file_obj is not None:
-            input_path = Path(file_obj if isinstance(file_obj, str) else file_obj.name)
+            input_path = Path(file_obj if isinstance(file_obj, str) else (getattr(file_obj, 'name', None) or str(file_obj)))
             if not input_path.exists():
                 return {"success": False, "error": "Uploaded file not found."}
         else:
@@ -388,13 +451,8 @@ def gradio_predict_api(
             base_filename=f"{scan_id}_{model_choice or 'mobilenet'}.jpg"
         )
 
-        cam_b64 = None
-        if res.get("has_gradcam") and res.get("gradcam_overlay_url"):
-            cam_path = STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
-            if cam_path.exists():
-                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
-
         report_url = None
+        report_pdf_path = None
         if generate_report:
             patient_meta = {
                 "patient_id": patient_id or (dicom_meta.get("patient_id") if dicom_meta else f"PT-{scan_id}"),
@@ -414,10 +472,11 @@ def gradio_predict_api(
             )
             report_url = f"/static/uploads/{report_pdf_path.name}"
 
+        _hydrate_base64_visualizations(res, input_path=input_path, report_pdf_path=report_pdf_path)
         res["success"] = True
         res["scan_id"] = scan_id
-        res["gradcam_overlay_b64"] = cam_b64
-        res["report_pdf_url"] = report_url
+        if not res.get("report_pdf_url"):
+            res["report_pdf_url"] = report_url
         res["dicom_metadata"] = dicom_meta
         return res
     except Exception as exc:
@@ -442,9 +501,9 @@ def gradio_compare_api(
             sample_meta = get_sample_info(sample_id)
             if not sample_meta:
                 return {"success": False, "error": "Sample study not found."}
-            input_path = sample_meta["path"]
+            input_path = Path(sample_meta["path"])
         elif file_obj is not None:
-            input_path = Path(file_obj if isinstance(file_obj, str) else file_obj.name)
+            input_path = Path(file_obj if isinstance(file_obj, str) else (getattr(file_obj, 'name', None) or str(file_obj)))
             if not input_path.exists():
                 return {"success": False, "error": "Uploaded file not found."}
         else:
@@ -464,13 +523,8 @@ def gradio_compare_api(
             generate_cams=explain
         )
 
-        cam_b64 = None
-        if res.get("primary_gradcam_overlay_url"):
-            cam_path = STATIC_DIR / res["primary_gradcam_overlay_url"].replace("/static/", "").lstrip("/")
-            if cam_path.exists():
-                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
-
         report_url = None
+        report_pdf_path = None
         if generate_report:
             patient_meta = {
                 "patient_id": patient_id or (dicom_meta.get("patient_id") if dicom_meta else f"PT-{scan_id}"),
@@ -490,10 +544,11 @@ def gradio_compare_api(
             )
             report_url = f"/static/uploads/{report_pdf_path.name}"
 
+        _hydrate_base64_visualizations(res, input_path=input_path, report_pdf_path=report_pdf_path)
         res["success"] = True
         res["scan_id"] = scan_id
-        res["gradcam_overlay_b64"] = cam_b64
-        res["report_pdf_url"] = report_url
+        if not res.get("report_pdf_url"):
+            res["report_pdf_url"] = report_url
         res["dicom_metadata"] = dicom_meta
         return res
     except Exception as exc:

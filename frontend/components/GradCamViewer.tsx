@@ -58,10 +58,17 @@ export function GradCamViewer({
 
         {reportUrl && (
           <a
-            href={reportUrl}
+            href={
+              reportUrl.startsWith('data:')
+                ? reportUrl
+                : reportUrl.startsWith('http')
+                ? reportUrl
+                : `https://shahabkhan396-pneumonia-hub.hf.space${reportUrl}`
+            }
+            download={`Pneumonia_Diagnostic_Report_${modelName.replace(/\s+/g, '_')}.pdf`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Download PDF Report</span>
