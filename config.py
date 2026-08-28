@@ -3,14 +3,19 @@ from pathlib import Path
 
 # Base directories
 BASE_DIR = Path(__file__).resolve().parent
+MODELS_DIR = BASE_DIR / "models"
 STATIC_DIR = BASE_DIR / "static"
 UPLOAD_FOLDER = STATIC_DIR / "uploads"
 SAMPLES_DIR = STATIC_DIR / "samples"
-TEMPLATES_DIR = BASE_DIR / "templates"
+
+# Ensure directories exist
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Upload and Security Settings (Includes DICOM .dcm format)
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "dcm"}
-MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 32 MB max upload size (for large DICOM series)
+MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 32 MB max upload size
 
 # Model & ML Parameters
 IMG_SIZE = 128
@@ -107,12 +112,3 @@ SAMPLES_CATALOG = {
         "badge_class": "badge-pneumonia",
     },
 }
-
-
-class Config:
-    """Flask application configuration class."""
-    SECRET_KEY = os.environ.get("SECRET_KEY", "pneumonia-diagnostic-hub-secret-key-2026")
-    UPLOAD_FOLDER = str(UPLOAD_FOLDER)
-    SAMPLES_DIR = str(SAMPLES_DIR)
-    MAX_CONTENT_LENGTH = MAX_CONTENT_LENGTH
-    JSON_SORT_KEYS = False

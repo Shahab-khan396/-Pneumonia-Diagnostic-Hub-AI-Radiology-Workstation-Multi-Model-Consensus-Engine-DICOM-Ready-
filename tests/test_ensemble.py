@@ -1,27 +1,18 @@
 import io
-import sys
-from pathlib import Path
 import cv2
 import numpy as np
 import pytest
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
+from fastapi.testclient import TestClient
 
 from core.ensemble import run_multi_model_comparison
 from config import IMG_SIZE
-from app import create_app
+from app import app
 
 
 @pytest.fixture
 def client():
-    """Create a Flask test client."""
-    app = create_app()
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+    """Create a FastAPI test client."""
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -56,17 +47,16 @@ def test_ensemble_multi_model_comparison(sample_image_path):
 
 
 def test_api_compare_endpoint(client, sample_image_path):
-    """Verify POST /api/v1/compare endpoint returns full consensus and PDF report URL."""
+    """Verify POST /hub_api/compare endpoint returns full consensus and report URL."""
     with open(sample_image_path, "rb") as f:
         img_bytes = f.read()
         
-    data = {
-        "file": (io.BytesIO(img_bytes), "test_compare.jpg"),
-        "explain": "true"
-    }
-    response = client.post("/api/v1/compare", data=data, content_type="multipart/form-data")
+    files = {"file": ("test_compare.jpg", io.BytesIO(img_bytes), "image/jpeg")}
+    data = {"explain": "true", "generate_report": "true"}
+    
+    response = client.post("/hub_api/compare", files=files, data=data)
     assert response.status_code == 200
-    res = response.get_json()
+    res = response.json()
     assert res["success"] is True
     assert res["is_ensemble"] is True
     assert "consensus_verdict" in res

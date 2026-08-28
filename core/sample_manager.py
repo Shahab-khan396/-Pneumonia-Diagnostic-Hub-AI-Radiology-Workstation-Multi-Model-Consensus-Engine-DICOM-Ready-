@@ -116,6 +116,8 @@ def get_sample_info(sample_id: str) -> Optional[Dict]:
     if sample_id not in SAMPLES_CATALOG:
         return None
     meta = dict(SAMPLES_CATALOG[sample_id])
-    meta["file_path"] = Path(SAMPLES_DIR) / meta["filename"]
+    resolved_path = Path(SAMPLES_DIR) / meta["filename"]
+    meta["file_path"] = resolved_path
+    meta["path"] = resolved_path
     meta["image_url"] = f"/static/samples/{meta['filename']}"
     return meta

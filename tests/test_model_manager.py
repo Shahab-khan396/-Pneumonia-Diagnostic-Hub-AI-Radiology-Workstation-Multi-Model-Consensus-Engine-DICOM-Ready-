@@ -1,13 +1,5 @@
-import os
-import sys
-from pathlib import Path
 import numpy as np
 import pytest
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
 
 from core.model_manager import ModelManager, get_model_manager
 from config import AVAILABLE_MODELS, CLASS_LABELS, IMG_SIZE

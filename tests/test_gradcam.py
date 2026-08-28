@@ -1,28 +1,20 @@
 import io
-import sys
 from pathlib import Path
 import cv2
 import numpy as np
 import pytest
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
+from fastapi.testclient import TestClient
 
 from core.gradcam import compute_gradcam_heatmap, create_gradcam_overlay, save_gradcam_visualizations
 from core.model_manager import get_model_manager
 from config import AVAILABLE_MODELS, IMG_SIZE
-from app import create_app
+from app import app
 
 
 @pytest.fixture
 def client():
-    """Create a Flask test client."""
-    app = create_app()
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+    """Create a FastAPI test client."""
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -96,18 +88,19 @@ def test_model_manager_predict_with_gradcam(sample_image_path, tmp_path):
 
 
 def test_api_predict_with_explain(client, sample_image_path):
-    """Verify POST /api/v1/predict returns Grad-CAM URLs in JSON."""
+    """Verify POST /hub_api/predict returns Grad-CAM URLs in JSON."""
     with open(sample_image_path, "rb") as f:
         img_bytes = f.read()
         
+    files = {"file": ("test_api_xray.jpg", io.BytesIO(img_bytes), "image/jpeg")}
     data = {
-        "file": (io.BytesIO(img_bytes), "test_api_xray.jpg"),
         "model_choice": "mobilenet",
-        "explain": "true"
+        "explain": "true",
+        "generate_report": "false"
     }
-    response = client.post("/api/v1/predict", data=data, content_type="multipart/form-data")
+    response = client.post("/hub_api/predict", files=files, data=data)
     assert response.status_code == 200
-    res = response.get_json()
+    res = response.json()
     assert res["success"] is True
     assert res["has_gradcam"] is True
     assert "gradcam_overlay_url" in res

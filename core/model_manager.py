@@ -10,7 +10,7 @@ os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import numpy as np
 from tensorflow.keras.models import load_model
-from config import BASE_DIR, AVAILABLE_MODELS, CLASS_LABELS, DEFAULT_MODEL, UPLOAD_FOLDER
+from config import BASE_DIR, MODELS_DIR, AVAILABLE_MODELS, CLASS_LABELS, DEFAULT_MODEL, UPLOAD_FOLDER
 from core.gradcam import compute_gradcam_heatmap, save_gradcam_visualizations
 
 # ZeroGPU decorator hook
@@ -119,7 +119,9 @@ class ModelManager:
             raise KeyError(f"Unknown model identifier: '{model_id}'. Available: {list(AVAILABLE_MODELS.keys())}")
         
         filename = AVAILABLE_MODELS[model_id]["filename"]
-        model_path = self._base_dir / filename
+        model_path = Path(MODELS_DIR) / filename
+        if not model_path.exists():
+            model_path = self._base_dir / filename
         
         if not model_path.exists():
             raise FileNotFoundError(

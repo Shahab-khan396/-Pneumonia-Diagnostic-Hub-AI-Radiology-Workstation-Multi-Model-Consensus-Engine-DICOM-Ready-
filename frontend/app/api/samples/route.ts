@@ -11,7 +11,9 @@ export async function GET() {
       headers['Authorization'] = `Bearer ${INTERNAL_API_KEY}`;
     }
 
-    const response = await fetch(`${FASTAPI_URL}/api/v1/samples`, {
+    const targetUrl = FASTAPI_URL.endsWith('/') ? `${FASTAPI_URL}hub_api/samples` : `${FASTAPI_URL}/hub_api/samples`;
+
+    const response = await fetch(targetUrl, {
       method: 'GET',
       headers,
       next: { revalidate: 300 }, // cache for 5 minutes

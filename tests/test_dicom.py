@@ -1,15 +1,9 @@
-import sys
 from pathlib import Path
 import numpy as np
 import pytest
 import pydicom
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
 
 from core.dicom_parser import is_dicom_file, parse_dicom_file
 

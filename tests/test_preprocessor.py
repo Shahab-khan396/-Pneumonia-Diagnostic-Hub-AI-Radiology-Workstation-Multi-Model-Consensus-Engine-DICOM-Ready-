@@ -1,14 +1,6 @@
-import os
-import sys
-from pathlib import Path
 import numpy as np
 import cv2
 import pytest
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
 
 from core.preprocessor import preprocess_image
 from config import IMG_SIZE

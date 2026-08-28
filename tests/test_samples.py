@@ -1,13 +1,4 @@
-import os
-import sys
-from pathlib import Path
 import pytest
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
-
 from core.sample_manager import list_sample_catalog, get_sample_info, ensure_samples_generated
 from config import SAMPLES_CATALOG
 
@@ -38,7 +29,7 @@ def test_get_sample_info_valid_and_invalid():
     info = get_sample_info("sample_bacterial")
     assert info is not None
     assert info["category"] == "PNEUMONIA"
-    assert info["file_path"].exists()
+    assert info["path"].exists() or info["file_path"].exists()
     
     bad_info = get_sample_info("unknown_nonexistent_sample")
     assert bad_info is None

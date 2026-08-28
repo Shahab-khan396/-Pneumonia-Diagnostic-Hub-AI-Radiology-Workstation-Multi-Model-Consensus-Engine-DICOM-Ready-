@@ -1,25 +1,17 @@
-import sys
 from pathlib import Path
 import cv2
 import numpy as np
 import pytest
-
-# Ensure Flask Application is in sys.path
-flask_app_dir = Path(__file__).resolve().parent.parent / "Flask Application"
-if str(flask_app_dir) not in sys.path:
-    sys.path.insert(0, str(flask_app_dir))
+from fastapi.testclient import TestClient
 
 from core.report_generator import generate_clinical_pdf_report
-from app import create_app
+from app import app
 
 
 @pytest.fixture
 def client():
-    """Create a Flask test client."""
-    app = create_app()
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+    """Create a FastAPI test client."""
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -94,7 +86,7 @@ def test_generate_ensemble_pdf_report(dummy_images, tmp_path):
 
 
 def test_download_report_endpoint(client, dummy_images, tmp_path):
-    """Verify report downloading via GET /api/v1/report/<filename>."""
+    """Verify report downloading via GET /reports/<filename>."""
     orig_path, overlay_path = dummy_images
     mock_pred = {"is_ensemble": False, "prediction": "NORMAL", "confidence": 98.0, "probabilities": {"NORMAL": 98.0, "PNEUMONIA": 2.0}}
     
@@ -105,6 +97,6 @@ def test_download_report_endpoint(client, dummy_images, tmp_path):
         gradcam_overlay_path=overlay_path
     )
     
-    response = client.get(f"/api/v1/report/{pdf_path.name}")
+    response = client.get(f"/hub_api/reports/{pdf_path.name}")
     assert response.status_code == 200
-    assert response.headers["Content-Type"] == "application/pdf"
+    assert "application/pdf" in response.headers["Content-Type"]
