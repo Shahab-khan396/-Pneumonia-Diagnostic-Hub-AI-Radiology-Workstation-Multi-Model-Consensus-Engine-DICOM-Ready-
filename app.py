@@ -343,6 +343,29 @@ def download_report(filename: str):
 # Include router in FastAPI application
 app.include_router(api_router)
 
+# ─── Hugging Face Space Lifecycle & Portal ─────────────────────────────────────
+import gradio as gr
+
+with gr.Blocks(
+    title="Pneumonia Diagnostic Hub • AI Engine",
+    theme=gr.themes.Soft(primary_hue="cyan", neutral_hue="slate")
+) as demo:
+    gr.Markdown(
+        """
+        # 🫁 Pneumonia Diagnostic Hub • High-Performance AI Engine
+        
+        ### 🟢 Engine Status: **Operational**
+        - 🌐 **Production Web Workstation**: [https://pneumonia-dignosis-hub.vercel.app/](https://pneumonia-dignosis-hub.vercel.app/)
+        - 📖 **Interactive OpenAPI / Swagger Documentation**: [/docs](/docs)
+        - ⚡ **Multi-Model Consensus Endpoint**: `POST /hub_api/compare`
+        - 🔬 **Single-Model Inference Endpoint**: `POST /hub_api/predict`
+        - 🏥 **Health Check Endpoint**: `GET /hub_api/health`
+        """
+    )
+
+# Mount Gradio app onto FastAPI
+app = gr.mount_gradio_app(app, demo, path="/")
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=True)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
+
