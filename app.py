@@ -53,6 +53,66 @@ from core.sample_manager import ensure_samples_generated, list_sample_catalog, g
 # Initialize sample catalog files on startup
 ensure_samples_generated()
 
+# ─── Base64 Visualization Hydration Helpers ────────────────────────────────────
+def _file_to_b64(path: Optional[Path], mime_type: str = "image/jpeg") -> Optional[str]:
+    if not path:
+        return None
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        encoded = base64.b64encode(p.read_bytes()).decode("utf-8")
+        return f"data:{mime_type};base64,{encoded}"
+    except Exception:
+        return None
+
+
+def _hydrate_base64_visualizations(res: dict, input_path: Optional[Path] = None, report_pdf_path: Optional[Path] = None):
+    # Overlay
+    if res.get("gradcam_overlay_url") and not res["gradcam_overlay_url"].startswith("data:"):
+        p = STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_overlay_url"] = b64
+            res["gradcam_overlay_b64"] = b64
+
+    # Primary Grad-CAM (Ensemble)
+    if res.get("primary_gradcam_overlay_url") and not res["primary_gradcam_overlay_url"].startswith("data:"):
+        p = STATIC_DIR / res["primary_gradcam_overlay_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_overlay_url"] = b64
+            res["primary_gradcam_overlay_url"] = b64
+            res["gradcam_overlay_b64"] = b64
+
+    # Heatmap
+    if res.get("gradcam_heatmap_url") and not res["gradcam_heatmap_url"].startswith("data:"):
+        p = STATIC_DIR / res["gradcam_heatmap_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_heatmap_url"] = b64
+
+    # Composite / Triad
+    if res.get("gradcam_composite_url") and not res["gradcam_composite_url"].startswith("data:"):
+        p = STATIC_DIR / res["gradcam_composite_url"].replace("/static/", "").lstrip("/")
+        b64 = _file_to_b64(p, "image/jpeg")
+        if b64:
+            res["gradcam_composite_url"] = b64
+
+    # PDF Report
+    if report_pdf_path and Path(report_pdf_path).exists():
+        pdf_b64 = _file_to_b64(Path(report_pdf_path), "application/pdf")
+        if pdf_b64:
+            res["report_pdf_url"] = pdf_b64
+            res["report_pdf_b64"] = pdf_b64
+
+    # Original Image
+    if input_path and Path(input_path).exists():
+        orig_b64 = _file_to_b64(Path(input_path), "image/jpeg")
+        if orig_b64:
+            res["original_image_url"] = orig_b64
+
+
 # ─── Initialize FastAPI App ───────────────────────────────────────────────────
 app = FastAPI(
     title="Pneumonia Diagnostic Hub • AI Engine",
@@ -189,73 +249,7 @@ def predict_endpoint(
             base_filename=f"{scan_id}_{model_choice}.jpg"
         )
 
-        # 5. Encode Grad-CAM overlay to base64
-        cam_b64 = None
-        if res.get("has_gradcam") and res.get("gradcam_overlay_url"):
-            cam_path = STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
-            if cam_path.exists():
-                cam_b64 = base64.b64encode(cam_path.read_bytes()).decode("utf-8")
-
-def _file_to_b64(path: Optional[Path], mime_type: str = "image/jpeg") -> Optional[str]:
-    if not path:
-        return None
-    p = Path(path)
-    if not p.exists():
-        return None
-    try:
-        encoded = base64.b64encode(p.read_bytes()).decode("utf-8")
-        return f"data:{mime_type};base64,{encoded}"
-    except Exception:
-        return None
-
-
-def _hydrate_base64_visualizations(res: dict, input_path: Optional[Path] = None, report_pdf_path: Optional[Path] = None):
-    # Overlay
-    if res.get("gradcam_overlay_url") and not res["gradcam_overlay_url"].startswith("data:"):
-        p = STATIC_DIR / res["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
-        b64 = _file_to_b64(p, "image/jpeg")
-        if b64:
-            res["gradcam_overlay_url"] = b64
-            res["gradcam_overlay_b64"] = b64
-
-    # Primary Grad-CAM (Ensemble)
-    if res.get("primary_gradcam_overlay_url") and not res["primary_gradcam_overlay_url"].startswith("data:"):
-        p = STATIC_DIR / res["primary_gradcam_overlay_url"].replace("/static/", "").lstrip("/")
-        b64 = _file_to_b64(p, "image/jpeg")
-        if b64:
-            res["gradcam_overlay_url"] = b64
-            res["primary_gradcam_overlay_url"] = b64
-            res["gradcam_overlay_b64"] = b64
-
-    # Heatmap
-    if res.get("gradcam_heatmap_url") and not res["gradcam_heatmap_url"].startswith("data:"):
-        p = STATIC_DIR / res["gradcam_heatmap_url"].replace("/static/", "").lstrip("/")
-        b64 = _file_to_b64(p, "image/jpeg")
-        if b64:
-            res["gradcam_heatmap_url"] = b64
-
-    # Composite / Triad
-    if res.get("gradcam_composite_url") and not res["gradcam_composite_url"].startswith("data:"):
-        p = STATIC_DIR / res["gradcam_composite_url"].replace("/static/", "").lstrip("/")
-        b64 = _file_to_b64(p, "image/jpeg")
-        if b64:
-            res["gradcam_composite_url"] = b64
-
-    # PDF Report
-    if report_pdf_path and Path(report_pdf_path).exists():
-        pdf_b64 = _file_to_b64(Path(report_pdf_path), "application/pdf")
-        if pdf_b64:
-            res["report_pdf_url"] = pdf_b64
-            res["report_pdf_b64"] = pdf_b64
-
-    # Original Image
-    if input_path and Path(input_path).exists():
-        orig_b64 = _file_to_b64(Path(input_path), "image/jpeg")
-        if orig_b64:
-            res["original_image_url"] = orig_b64
-
-
-        # 6. Generate Clinical PDF Report if requested
+        # 5. Generate Clinical PDF Report if requested
         report_url = None
         report_pdf_path = None
         if generate_report.lower() in ["true", "1", "yes"]:
@@ -277,6 +271,7 @@ def _hydrate_base64_visualizations(res: dict, input_path: Optional[Path] = None,
             )
             report_url = f"/static/uploads/{report_pdf_path.name}"
 
+        # 6. Hydrate Base64 Data URIs
         _hydrate_base64_visualizations(res, input_path=input_path, report_pdf_path=report_pdf_path)
         res["success"] = True
         res["scan_id"] = scan_id
@@ -609,9 +604,13 @@ with gr.Blocks(
         api_name="samples"
     )
 
-demo.queue()
-app = demo.app
+# Include custom API router on root FastAPI app
+app.include_router(api_router)
+
+# Mount Gradio onto FastAPI app at /portal
+app = gr.mount_gradio_app(app, demo, path="/portal")
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)
+
 
