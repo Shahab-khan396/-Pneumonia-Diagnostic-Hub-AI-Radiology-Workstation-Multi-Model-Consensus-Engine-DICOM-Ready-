@@ -22,6 +22,72 @@ except Exception:
         return func
 
 
+def _safe_load_model(model_path: Path):
+    """
+    Safely load a Keras/TensorFlow model file across Keras 2 / Keras 3 versions,
+    stripping 'quantization_config' and other Keras 3 specific keys if present.
+    """
+    custom_objects = {}
+    
+    # Try importing Keras 3 layers
+    try:
+        import keras
+        from keras.layers import Dense, Conv2D, DepthwiseConv2D, BatchNormalization, GlobalAveragePooling2D, Dropout
+
+        class SafeDense(Dense):
+            @classmethod
+            def from_config(cls, config):
+                config.pop("quantization_config", None)
+                return super().from_config(config)
+
+        class SafeConv2D(Conv2D):
+            @classmethod
+            def from_config(cls, config):
+                config.pop("quantization_config", None)
+                return super().from_config(config)
+
+        class SafeDepthwiseConv2D(DepthwiseConv2D):
+            @classmethod
+            def from_config(cls, config):
+                config.pop("quantization_config", None)
+                return super().from_config(config)
+
+        custom_objects.update({
+            "Dense": SafeDense,
+            "Conv2D": SafeConv2D,
+            "DepthwiseConv2D": SafeDepthwiseConv2D,
+        })
+        return keras.models.load_model(str(model_path), custom_objects=custom_objects, compile=False)
+    except Exception:
+        pass
+
+    # Fallback to tf.keras.models.load_model
+    try:
+        import tensorflow as tf
+        from tensorflow.keras.layers import Dense as TFDense, Conv2D as TFConv2D
+
+        class TFSafeDense(TFDense):
+            @classmethod
+            def from_config(cls, config):
+                config.pop("quantization_config", None)
+                return super().from_config(config)
+
+        class TFSafeConv2D(TFConv2D):
+            @classmethod
+            def from_config(cls, config):
+                config.pop("quantization_config", None)
+                return super().from_config(config)
+
+        custom_objects.update({
+            "Dense": TFSafeDense,
+            "Conv2D": TFSafeConv2D,
+        })
+        return tf.keras.models.load_model(str(model_path), custom_objects=custom_objects, compile=False)
+    except Exception:
+        import tensorflow as tf
+        return tf.keras.models.load_model(str(model_path), compile=False)
+
+
 class ModelManager:
     """
     Thread-safe Singleton Model Manager that handles lazy loading,
@@ -72,10 +138,11 @@ class ModelManager:
         with self._cache_lock:
             if model_id not in self._models_cache:
                 model_path = self._resolve_model_path(model_id)
-                # Load with compile=False for faster loading during pure inference
-                loaded = load_model(str(model_path), compile=False)
+                # Load using resilient safe loader
+                loaded = _safe_load_model(model_path)
                 self._models_cache[model_id] = loaded
             return self._models_cache[model_id]
+
 
     def predict(
         self,
