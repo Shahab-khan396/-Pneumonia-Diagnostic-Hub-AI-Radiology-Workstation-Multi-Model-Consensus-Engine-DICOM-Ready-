@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Client } from '@gradio/client';
-
-const SPACE_ID = process.env.FASTAPI_URL || process.env.NEXT_PUBLIC_HF_SPACE_URL || 'Shahabkhan396/pneumonia-hub';
-const HF_TOKEN = process.env.HF_TOKEN || '';
+import { callGradioApi, uploadFileToGradio } from '../gradioClient';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,14 +14,14 @@ export async function POST(request: NextRequest) {
     const clinical_history = (formData.get('clinical_history') as string) || '';
     const referring_physician = (formData.get('referring_physician') as string) || '';
 
-    const client = await Client.connect(SPACE_ID, {
-      hf_token: HF_TOKEN && HF_TOKEN.startsWith('hf_') ? (HF_TOKEN as `hf_${string}`) : undefined,
-    });
+    // Handle file upload if provided
+    let filePayload = null;
+    if (file && file.size > 0) {
+      filePayload = await uploadFileToGradio(file);
+    }
 
-    const fileBlob = file ? file : null;
-
-    const result = await client.predict('/compare', [
-      fileBlob,
+    const payload = [
+      filePayload,
       sample_id,
       explain,
       generate_report,
@@ -33,19 +30,18 @@ export async function POST(request: NextRequest) {
       patient_gender,
       clinical_history,
       referring_physician,
-    ]);
+    ];
 
-    const data: any = result.data;
-    return NextResponse.json(data);
+    const result = await callGradioApi('compare', payload);
+    return NextResponse.json(result);
   } catch (error: any) {
-    console.error('Error proxying to Gradio compare endpoint:', error);
+    console.error('Error in compare endpoint:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Could not connect to AI backend service. Ensure Hugging Face Space is running.',
+        error: error.message || 'Multi-model consensus failed on ZeroGPU backend service.',
       },
       { status: 502 }
     );
   }
 }
-
