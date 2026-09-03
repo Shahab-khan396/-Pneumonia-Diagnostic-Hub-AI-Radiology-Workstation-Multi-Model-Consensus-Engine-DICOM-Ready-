@@ -14,6 +14,7 @@ license: mit
 
 [![Production Live Demo](https://img.shields.io/badge/Live%20Frontend-Vercel-black?style=for-the-badge&logo=vercel)](https://pneumonia-dignosis-hub.vercel.app/)
 [![AI Engine](https://img.shields.io/badge/AI%20Engine-Hugging%20Face%20Spaces-yellow?style=for-the-badge&logo=huggingface)](https://huggingface.co/spaces/Shahabkhan396/pneumonia-hub)
+[![Streamlit App](https://img.shields.io/badge/Streamlit%20Workstation-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](STREAMLIT_DEPLOYMENT.md)
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue?style=for-the-badge&logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16+-orange?style=for-the-badge&logo=tensorflow)](https://tensorflow.org)
