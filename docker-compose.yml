@@ -8,3 +8,14 @@ services:
       - PORT=7860
       - SECRET_KEY=pneumonia-diagnostic-hub-production-key
     restart: unless-stopped
+
+  pneumonia-streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: pneumonia_streamlit_workstation
+    ports:
+      - "8501:8501"
+    environment:
+      - PORT=8501
+    restart: unless-stopped
