@@ -110,13 +110,20 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Run the AI API Server
+### 2. Launch the Streamlit AI Radiology Workstation
+```powershell
+streamlit run streamlit_app.py
+```
+Opens the interactive clinical decision support workstation with 4-Model Consensus, DICOM viewer, Grad-CAM attention blending, and PDF reporting at `http://localhost:8501`.
+See [STREAMLIT_DEPLOYMENT.md](STREAMLIT_DEPLOYMENT.md) for 1-click **Streamlit Community Cloud** hosting!
+
+### 3. Run the AI API Server (FastAPI / HF Space)
 ```powershell
 uvicorn app:app --host 0.0.0.0 --port 7860 --reload
 ```
 Interactive Swagger API documentation will be available at `http://localhost:7860/docs`.
 
-### 3. Run the Next.js Frontend
+### 4. Run the Next.js Frontend
 ```powershell
 cd frontend
 npm install
@@ -124,11 +131,11 @@ npm run dev
 ```
 Open `http://localhost:3000` to access the modern radiology workstation.
 
-### 4. Run the Full Test Suite
+### 5. Run the Full Test Suite
 ```powershell
 pytest tests/ -v
 ```
-All **31 automated tests** execute in under 20 seconds.
+All automated unit and integration tests execute in under 25 seconds.
 
 ---
 
