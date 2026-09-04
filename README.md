@@ -12,14 +12,31 @@ license: mit
 
 # 🫁 Pneumonia Diagnostic Hub • AI Radiology Workstation
 
-[![Production Live Demo](https://img.shields.io/badge/Live%20Frontend-Vercel-black?style=for-the-badge&logo=vercel)](https://pneumonia-dignosis-hub.vercel.app/)
-[![AI Engine](https://img.shields.io/badge/AI%20Engine-Hugging%20Face%20Spaces-yellow?style=for-the-badge&logo=huggingface)](https://huggingface.co/spaces/Shahabkhan396/pneumonia-hub)
-[![Streamlit App](https://img.shields.io/badge/Streamlit%20Workstation-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](STREAMLIT_DEPLOYMENT.md)
-[![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue?style=for-the-badge&logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
+[![Live Streamlit Workstation](https://img.shields.io/badge/Live%20Streamlit%20App-pneumonia--diagnosis--app.streamlit.app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://pneumonia-diagnosis-app.streamlit.app/)
+[![Frontend Vercel](https://img.shields.io/badge/Frontend-Next.js%2015%20(Vercel)-black?style=for-the-badge&logo=vercel)](https://pneumonia-dignosis-hub.vercel.app/)
+[![Backend Render](https://img.shields.io/badge/Backend-FastAPI%20(Render)-46E3B7?style=for-the-badge&logo=render)](https://render.com)
+[![Models HF](https://img.shields.io/badge/Models-Hugging%20Face%20Spaces-yellow?style=for-the-badge&logo=huggingface)](https://huggingface.co/spaces/Shahabkhan396/pneumonia-hub)
+[![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)](https://python.org)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16+-orange?style=for-the-badge&logo=tensorflow)](https://tensorflow.org)
-[![Next.js](https://img.shields.io/badge/Next.js-15%20App%20Router-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
+[![Tests Passing](https://img.shields.io/badge/Pytest-36%20Passed-brightgreen?style=for-the-badge&logo=pytest)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+
+---
+
+> # ⚠️ **IMPORTANT ARCHITECTURAL EVOLUTION & DEPLOYMENT CHALLENGE**
+>
+> ### **1. INITIAL DEPLOYMENT ARCHITECTURE (DECOUPLED 3-TIER STACK):**
+> * **Frontend Workstation:** Built with **Next.js 15 (App Router)** and deployed on **Vercel** ([pneumonia-dignosis-hub.vercel.app](https://pneumonia-dignosis-hub.vercel.app/)).
+> * **Backend API Service:** Built with **FastAPI (Python ASGI)** and deployed on **Render**.
+> * **Deep Learning Model Serving:** Hosted and served via **Hugging Face Spaces**.
+>
+> ### 🛑 **THE CRITICAL CLOUD INFRASTRUCTURE & DEPENDENCY PROBLEM:**
+> # **Hugging Face discontinued free persistent CPU tiers for heavy multi-model execution, and when attempting to utilize Hugging Face ZeroGPU, severe dependency and CUDA ABI conflicts occurred between ZeroGPU’s PyTorch-native runtime and TensorFlow 2.16+ / Keras 3. Furthermore, Render’s free tier memory limit (512 MB) triggered severe Out-Of-Memory (OOM) crashes when attempting to host all 4 deep vision models (VGG19, ResNet50, EfficientNetB0, MobileNetV2).**
+>
+> ### 🚀 **THE PRODUCTION SOLUTION — UNIFIED STREAMLIT COMMUNITY CLOUD:**
+> # **To solve these cloud memory ceilings, free-tier restrictions, and ZeroGPU/TensorFlow compatibility conflicts, I re-architected and unified the entire clinical workstation into a high-performance, single-tier deployment on Streamlit Community Cloud: 👉 [pneumonia-diagnosis-app.streamlit.app](https://pneumonia-diagnosis-app.streamlit.app/). This unified production app directly runs the 4-Model Consensus Engine, dynamic Grad-CAM XAI re-blending, DICOM 3.0 parsing, and publication-grade PDF report export with Git LFS model tracking and zero external API latency!**
+
+---
 
 An enterprise-grade, clinical-assisted decision support system for chest radiograph (CXR) pneumonia screening. Powered by a **4-Model Weighted Soft-Voting Consensus Engine**, **Explainable AI (Grad-CAM heatmaps)**, **DICOM (.dcm) metadata parsing**, and automated **Clinical PDF Report Generation**.
 
