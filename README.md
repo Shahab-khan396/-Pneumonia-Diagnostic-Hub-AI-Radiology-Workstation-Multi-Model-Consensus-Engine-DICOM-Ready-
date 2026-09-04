@@ -74,6 +74,7 @@ graph TD
 ## 📁 Clean Repository Structure
 
 ```text
+├── streamlit_app.py           # Production Streamlit Clinical Decision Support Workstation
 ├── app.py                     # Hugging Face Space & FastAPI ASGI Server Entrypoint
 ├── config.py                  # Unified Root Configuration (Paths, Model Weights, Specs)
 ├── core/                      # Core Machine Learning & Medical Imaging Engine
@@ -98,7 +99,7 @@ graph TD
 ├── static/                    # Generated output assets & sample studies
 │   ├── samples/               # Pre-synthesized normal, bacterial & viral samples
 │   └── uploads/               # Processed scans, heatmaps & clinical reports
-├── tests/                     # 31 Comprehensive Pytest Unit & Integration Tests
+├── tests/                     # 36 Comprehensive Pytest Unit & Integration Tests
 │   ├── test_api.py            # API endpoint health, predict & comparison tests
 │   ├── test_dicom.py          # DICOM header parsing & conversion tests
 │   ├── test_docs.py           # OpenAPI / Swagger UI schema validation tests
@@ -107,7 +108,9 @@ graph TD
 │   ├── test_model_manager.py  # ModelManager singleton & inference tests
 │   ├── test_preprocessor.py   # Tensor scaling & image normalization tests
 │   ├── test_report_generator.py# ReportLab PDF compilation tests
-│   └── test_samples.py        # Synthetic sample radiograph generation tests
+│   ├── test_samples.py        # Synthetic sample radiograph generation tests
+│   └── test_streamlit_app.py  # Streamlit app compilation & configuration tests
+├── STREAMLIT_DEPLOYMENT.md    # Step-by-step Streamlit Cloud deployment guide
 ├── Dockerfile                 # Production container specification
 ├── docker-compose.yml         # Multi-container orchestration
 └── requirements.txt           # Production Python dependencies
