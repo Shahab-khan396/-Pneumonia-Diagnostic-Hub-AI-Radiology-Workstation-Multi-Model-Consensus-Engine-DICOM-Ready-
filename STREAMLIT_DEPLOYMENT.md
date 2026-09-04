@@ -37,8 +37,9 @@ git push origin main
 2. Select your repository:
    - **Repository:** `Shahab-khan396/-Pneumonia-Diagnostic-Hub-AI-Radiology-Workstation-Multi-Model-Consensus-Engine-DICOM-Ready-`
    - **Branch:** `main`
-   - **Main file path:** `streamlit_app.py`
-3. Click **"Deploy!"**.
+3. Click **"Advanced settings"** (or click the three dots ⋮ -> **Settings** on an existing app):
+   - **Python version:** Select **`3.11`** (⚠️ **Crucial**: TensorFlow requires Python 3.10–3.12; defaulting to Python 3.13 or 3.14 will cause missing TensorFlow wheel errors).
+4. Click **"Deploy!"** (or **"Save"**).
 
 Streamlit Community Cloud will automatically:
 - Install Python dependencies from `requirements.txt` (using pre-compiled `opencv-python-headless` which requires zero system GUI libraries).
