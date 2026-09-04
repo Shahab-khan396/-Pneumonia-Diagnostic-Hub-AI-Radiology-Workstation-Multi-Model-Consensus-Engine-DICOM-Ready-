@@ -93,7 +93,12 @@ def create_gradcam_overlay(
     """
     orig_img = cv2.imread(str(original_image_path))
     if orig_img is None:
-        raise ValueError(f"Could not read original image at {original_image_path}")
+        try:
+            from PIL import Image
+            pil_img = Image.open(original_image_path).convert("RGB")
+            orig_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            raise ValueError(f"Could not read original image at {original_image_path}: {e}")
 
     h, w, _ = orig_img.shape
 
@@ -140,7 +145,9 @@ def save_gradcam_visualizations(
     upload_dir: Path,
     base_filename: str,
     original_path: Path,
-    heatmap: np.ndarray
+    heatmap: np.ndarray,
+    colormap: int = cv2.COLORMAP_JET,
+    alpha: float = 0.45
 ) -> Dict[str, str]:
     """
     Generate and save overlay, heatmap, and composite images to disk.
@@ -151,11 +158,21 @@ def save_gradcam_visualizations(
     upload_dir = Path(upload_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    overlay, heatmap_color, composite = create_gradcam_overlay(original_path, heatmap)
+    overlay, heatmap_color, composite = create_gradcam_overlay(
+        original_image_path=original_path,
+        heatmap=heatmap,
+        colormap=colormap,
+        alpha=alpha
+    )
 
-    overlay_filename = f"gradcam_overlay_{base_filename}"
-    heatmap_filename = f"gradcam_heat_{base_filename}"
-    composite_filename = f"gradcam_comp_{base_filename}"
+    # Ensure valid image extension
+    p = Path(base_filename)
+    stem = p.stem if p.suffix else base_filename
+    ext = p.suffix.lower() if p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"] else ".jpg"
+
+    overlay_filename = f"gradcam_overlay_{stem}{ext}"
+    heatmap_filename = f"gradcam_heat_{stem}{ext}"
+    composite_filename = f"gradcam_comp_{stem}{ext}"
 
     cv2.imwrite(str(upload_dir / overlay_filename), overlay)
     cv2.imwrite(str(upload_dir / heatmap_filename), heatmap_color)

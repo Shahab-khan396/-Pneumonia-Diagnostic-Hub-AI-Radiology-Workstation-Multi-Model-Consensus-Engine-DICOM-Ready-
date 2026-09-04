@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import cv2
 import numpy as np
 
 from config import AVAILABLE_MODELS, ENSEMBLE_WEIGHTS, DEFAULT_MODEL
@@ -11,7 +12,10 @@ def run_multi_model_comparison(
     image_tensor: np.ndarray,
     original_image_path: Path,
     base_filename: str,
-    generate_cams: bool = True
+    generate_cams: bool = True,
+    cam_colormap: int = cv2.COLORMAP_JET,
+    cam_alpha: float = 0.45,
+    exclude_vgg: bool = False
 ) -> Dict[str, Any]:
     """
     Execute inference across all registered deep learning backbones simultaneously
@@ -33,6 +37,9 @@ def run_multi_model_comparison(
     total_start_time = time.perf_counter()
 
     for model_id, meta in AVAILABLE_MODELS.items():
+        if exclude_vgg and model_id.lower() == "vgg19":
+            continue
+
         weight = ENSEMBLE_WEIGHTS.get(model_id, 0.25)
         total_weight += weight
         
@@ -42,7 +49,9 @@ def run_multi_model_comparison(
             image_tensor=image_tensor,
             generate_cam=generate_cams,
             original_image_path=original_image_path,
-            base_filename=f"{model_id}_{base_filename}"
+            base_filename=f"{model_id}_{base_filename}",
+            cam_colormap=cam_colormap,
+            cam_alpha=cam_alpha
         )
         
         pred = res["prediction"]
@@ -69,6 +78,7 @@ def run_multi_model_comparison(
             "target_conv_layer": res.get("target_conv_layer", "N/A"),
             "gradcam_overlay_url": res.get("gradcam_overlay_url"),
             "gradcam_composite_url": res.get("gradcam_composite_url"),
+            "raw_heatmap": res.get("raw_heatmap"),
         }
         model_results.append(model_card)
 
@@ -132,4 +142,5 @@ def run_multi_model_comparison(
         "models_breakdown": model_results,
         "primary_gradcam_overlay_url": primary_model_res.get("gradcam_overlay_url"),
         "primary_gradcam_composite_url": primary_model_res.get("gradcam_composite_url"),
+        "primary_raw_heatmap": primary_model_res.get("raw_heatmap"),
     }

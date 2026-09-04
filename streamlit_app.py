@@ -490,7 +490,7 @@ if st.session_state["selected_image_path"]:
                 try:
                     # 1. Preprocess image
                     input_tensor = preprocess_image(active_path)
-                    base_fname = f"scan_{uuid.uuid4().hex[:8]}"
+                    base_fname = f"scan_{uuid.uuid4().hex[:8]}.jpg"
 
                     if op_mode == "Multi-Model Consensus":
                         # Multi-model consensus inference
@@ -498,10 +498,14 @@ if st.session_state["selected_image_path"]:
                             image_tensor=input_tensor,
                             original_image_path=active_path,
                             base_filename=base_fname,
-                            generate_cams=enable_gradcam
+                            generate_cams=enable_gradcam,
+                            cam_colormap=active_cv2_cmap,
+                            cam_alpha=blend_alpha,
+                            exclude_vgg=fast_consensus_mode
                         )
                         st.session_state["inference_result"] = comparison_res
                         st.session_state["inference_type"] = "consensus"
+                        st.session_state["active_heatmap"] = comparison_res.get("primary_raw_heatmap")
                     else:
                         # Single model inference
                         manager = get_model_manager()
@@ -510,10 +514,13 @@ if st.session_state["selected_image_path"]:
                             image_tensor=input_tensor,
                             generate_cam=enable_gradcam,
                             original_image_path=active_path,
-                            base_filename=base_fname
+                            base_filename=base_fname,
+                            cam_colormap=active_cv2_cmap,
+                            cam_alpha=blend_alpha
                         )
                         st.session_state["inference_result"] = pred_res
                         st.session_state["inference_type"] = "single"
+                        st.session_state["active_heatmap"] = pred_res.get("raw_heatmap")
 
                     st.success("AI Diagnostic Screening Completed!")
                 except Exception as infer_err:
@@ -611,44 +618,72 @@ if st.session_state.get("inference_result"):
 
     active_image_path = Path(st.session_state["selected_image_path"])
 
-    # Extract primary Grad-CAM image paths
+    # Extract primary Grad-CAM image paths and heatmaps
     overlay_path = None
     composite_path = None
     
     if is_consensus:
         overlay_url = res.get("primary_gradcam_overlay_url")
         comp_url = res.get("primary_gradcam_composite_url")
+        raw_hm = res.get("primary_raw_heatmap")
     else:
         overlay_url = res.get("gradcam_overlay_url")
         comp_url = res.get("gradcam_composite_url")
+        raw_hm = res.get("raw_heatmap")
 
     if overlay_url:
         overlay_path = STATIC_DIR / overlay_url.replace("/static/", "").lstrip("/")
     if comp_url:
         composite_path = STATIC_DIR / comp_url.replace("/static/", "").lstrip("/")
 
-    # If active paths exist, offer interactive dynamic blend
+    # Check if we can dynamically render with current sidebar slider & colormap
+    dynamic_rendered = False
+    dyn_overlay_rgb = None
+    dyn_comp_rgb = None
+    dyn_overlay_bgr = None
+
+    if raw_hm is not None:
+        try:
+            dyn_overlay_bgr, _, dyn_comp_bgr = create_gradcam_overlay(
+                original_image_path=active_image_path,
+                heatmap=raw_hm,
+                colormap=active_cv2_cmap,
+                alpha=blend_alpha
+            )
+            dyn_overlay_rgb = cv2.cvtColor(dyn_overlay_bgr, cv2.COLOR_BGR2RGB)
+            dyn_comp_rgb = cv2.cvtColor(dyn_comp_bgr, cv2.COLOR_BGR2RGB)
+            dynamic_rendered = True
+        except Exception:
+            dynamic_rendered = False
+
     cam_c1, cam_c2 = st.columns(2)
     with cam_c1:
         st.markdown("##### 🫁 Original Radiograph")
         st.image(str(active_image_path), use_container_width=True)
 
     with cam_c2:
-        st.markdown(f"##### 🎯 Grad-CAM Attention Overlay (Alpha: {blend_alpha})")
-        if overlay_path and overlay_path.exists():
+        st.markdown(f"##### 🎯 Grad-CAM Attention Overlay (Alpha: {blend_alpha:.2f})")
+        if dynamic_rendered and dyn_overlay_rgb is not None:
+            st.image(dyn_overlay_rgb, use_container_width=True, caption=f"Active Attention: {colormap_choice} ({int(blend_alpha * 100)}% Opacity)")
+        elif overlay_path and overlay_path.exists():
             st.image(str(overlay_path), use_container_width=True)
+        elif res.get("gradcam_error"):
+            st.error(f"Grad-CAM error: {res['gradcam_error']}")
         else:
             st.info("Grad-CAM overlay rendering complete.")
 
-    if composite_path and composite_path.exists():
+    if dynamic_rendered and dyn_comp_rgb is not None:
+        with st.expander("🖼️ View High-Resolution Diagnostic Composite Triad", expanded=True):
+            st.image(dyn_comp_rgb, caption=f"[ Original Radiograph | Class Activation Heatmap ({colormap_choice}) | Diagnostic Anatomical Overlay ]", use_container_width=True)
+    elif composite_path and composite_path.exists():
         with st.expander("🖼️ View High-Resolution Diagnostic Composite Triad", expanded=True):
             st.image(str(composite_path), caption="[ Original Radiograph | Class Activation Heatmap | Diagnostic Anatomical Overlay ]", use_container_width=True)
 
 
     # ─── Step 5: Multi-Model Architecture Comparative Grid ─────────────────────
+    st.markdown("---")
+    st.markdown("### 🏛️ Step 5: Multi-Architecture Comparative Grid")
     if is_consensus and "models_breakdown" in res:
-        st.markdown("---")
-        st.markdown("### 🏛️ Step 5: Multi-Architecture Comparative Grid")
         st.caption("Side-by-side performance, parameters, confidence, and isolated Grad-CAM attention per CNN architecture:")
 
         breakdown = res["models_breakdown"]
@@ -675,6 +710,9 @@ if st.session_state.get("inference_result"):
                     m_over_path = STATIC_DIR / m_card["gradcam_overlay_url"].replace("/static/", "").lstrip("/")
                     if m_over_path.exists():
                         st.image(str(m_over_path), caption=f"{m_card['name']} CAM", use_container_width=True)
+    else:
+        active_model_name = res.get("model_name", "MobileNetV2")
+        st.info(f"💡 **Single Architecture Mode Active**: You evaluated this study using **{active_model_name}**. To view the side-by-side Multi-Architecture Comparative Grid with isolated metrics and Grad-CAM attention across all 4 models (MobileNetV2, ResNet50, EfficientNetB0, VGG19), select **Multi-Model Consensus** in the left sidebar and click *Execute AI Diagnostic Analysis*.")
 
 
     # ─── Step 6: Publication-Grade Clinical PDF Report Generator ───────────────
@@ -715,11 +753,17 @@ if st.session_state.get("inference_result"):
                     patient_meta["reviewing_radiologist"] = st.session_state["clinician_name"]
                     patient_meta["facility_name"] = st.session_state["facility_name"]
 
+                    report_cam_path = overlay_path if (overlay_path and overlay_path.exists()) else None
+                    if not report_cam_path and dynamic_rendered and dyn_overlay_bgr is not None:
+                        temp_report_cam = UPLOAD_FOLDER / f"report_cam_{scan_uuid}.jpg"
+                        cv2.imwrite(str(temp_report_cam), dyn_overlay_bgr)
+                        report_cam_path = temp_report_cam
+
                     pdf_file_path = generate_clinical_pdf_report(
                         scan_id=scan_uuid,
                         prediction_data=res,
                         original_image_path=active_image_path,
-                        gradcam_overlay_path=overlay_path if (overlay_path and overlay_path.exists()) else None,
+                        gradcam_overlay_path=report_cam_path,
                         patient_metadata=patient_meta,
                         output_dir=Path(UPLOAD_FOLDER)
                     )

@@ -151,12 +151,13 @@ class ModelManager:
         model_id: str,
         image_tensor: np.ndarray,
         generate_cam: bool = False,
-        original_image_path: Optional[Union[str, Path]] = None,
-        base_filename: Optional[str] = None
+        original_image_path: Optional[Path] = None,
+        base_filename: Optional[str] = None,
+        cam_colormap: int = cv2.COLORMAP_JET,
+        cam_alpha: float = 0.45,
     ) -> Dict[str, Any]:
-
         """
-        Run inference using the specified model and optionally generate Grad-CAM heatmaps.
+        Execute forward-pass classification for a given single model.
         
         Correct Label Mapping:
           Index 0 -> 'NORMAL'
@@ -218,10 +219,13 @@ class ModelManager:
                     upload_dir=self._upload_dir,
                     base_filename=base_filename,
                     original_path=Path(original_image_path),
-                    heatmap=heatmap
+                    heatmap=heatmap,
+                    colormap=cam_colormap,
+                    alpha=cam_alpha
                 )
                 response.update(cam_urls)
                 response["has_gradcam"] = True
+                response["raw_heatmap"] = heatmap
             except Exception as cam_err:
                 response["has_gradcam"] = False
                 response["gradcam_error"] = str(cam_err)
