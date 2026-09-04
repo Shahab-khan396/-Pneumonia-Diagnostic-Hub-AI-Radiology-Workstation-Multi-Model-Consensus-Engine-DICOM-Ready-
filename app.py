@@ -278,6 +278,7 @@ def predict_endpoint(
         if not res.get("report_pdf_url"):
             res["report_pdf_url"] = report_url
         res["dicom_metadata"] = dicom_meta
+        res.pop("raw_heatmap", None)
         return res
 
     except HTTPException:
@@ -381,6 +382,9 @@ def compare_endpoint(
         if not res.get("report_pdf_url"):
             res["report_pdf_url"] = report_url
         res["dicom_metadata"] = dicom_meta
+        res.pop("primary_raw_heatmap", None)
+        for m in res.get("models_breakdown", []):
+            m.pop("raw_heatmap", None)
         return res
 
     except HTTPException:
