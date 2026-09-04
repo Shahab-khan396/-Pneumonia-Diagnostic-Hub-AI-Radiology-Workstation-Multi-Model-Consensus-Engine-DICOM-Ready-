@@ -9,6 +9,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 import numpy as np
+import cv2
 from tensorflow.keras.models import load_model
 from config import BASE_DIR, MODELS_DIR, AVAILABLE_MODELS, CLASS_LABELS, DEFAULT_MODEL, UPLOAD_FOLDER
 from core.gradcam import compute_gradcam_heatmap, save_gradcam_visualizations
