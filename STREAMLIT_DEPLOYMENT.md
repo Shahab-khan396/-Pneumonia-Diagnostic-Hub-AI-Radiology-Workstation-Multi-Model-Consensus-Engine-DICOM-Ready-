@@ -41,8 +41,7 @@ git push origin main
 3. Click **"Deploy!"**.
 
 Streamlit Community Cloud will automatically:
-- Detect and install Linux system libraries from `packages.txt` (`libgl1`, `libglib2.0-0`, `libgomp1`).
-- Install Python dependencies from `requirements.txt`.
+- Install Python dependencies from `requirements.txt` (using pre-compiled `opencv-python-headless` which requires zero system GUI libraries).
 - Apply custom clinical dark theme settings from `.streamlit/config.toml`.
 - Launch the workstation live!
 
