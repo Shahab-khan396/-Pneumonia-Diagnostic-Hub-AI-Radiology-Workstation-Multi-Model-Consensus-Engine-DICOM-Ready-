@@ -1,27 +1,31 @@
-# Byte-compiled / optimized / DLL files
+# ── Python ────────────────────────────────────────────────────
 __pycache__/
 *.py[codz]
 *$py.class
 *.so
+*.egg-info/
+dist/
+build/
 
-# Environments & Secrets
+# ── Environments & Secrets ────────────────────────────────────
 .env
 .env.*
 *.env
 !.env.example
-!backend/.env.example
-!frontend/.env.example
+!frontend/.env.local.example
 
-# Local Automation & Deployment Scripts
-upload-script.py
-
-# Virtual Environments
+# ── Virtual Environments ──────────────────────────────────────
 .venv/
 env/
 venv/
 ENV/
 
-# Node.js & Frontend Builds
+# ── Testing & Coverage ────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Node.js & Frontend Builds ─────────────────────────────────
 node_modules/
 frontend/node_modules/
 .next/
@@ -31,33 +35,44 @@ frontend/out/
 .vercel/
 frontend/.vercel/
 
-# Testing & Coverage
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Dynamic User Uploads & Generated Reports (preserve .gitkeep)
-Flask Application/static/uploads/*
-!Flask Application/static/uploads/.gitkeep
-backend/static/reports/*
-!backend/static/reports/.gitkeep
-backend/static/samples/*
-!backend/static/samples/.gitkeep
+# ── Runtime Generated Files (uploads, Grad-CAM, reports) ──────
+# These are created at runtime and must never be committed.
 static/uploads/*
 !static/uploads/.gitkeep
 static/reports/*
 !static/reports/.gitkeep
-static/samples/*
-!static/samples/.gitkeep
+# Keep sample X-rays (they are curated assets, not runtime files)
+# static/samples/ is intentionally tracked
 
-# Large Archives & Local Datasets
-archive.zip
-chest_xray/
+# ── Model Training Artifacts ──────────────────────────────────
+# Notebook outputs, training plots, comparison CSVs
+models/training_histories.png
+models/model_comparison.txt
+models/model_comparison.csv
+models/yolo_inference_samples.png
+# Base/pretrain weights not needed in repo (download separately)
+models/yolov8n.pt
+models/last.pt
 
-# IDE & OS
+# ── Large & Unused Model Weights ─────────────────────────────
+# Only the 4 active models are tracked: mobilenet, densenet121,
+# efficientnet, xception + yolov8_pneumonia.pt
+# VGG19 and ResNet50 are no longer used by the production app.
+models/VGG19_model.h5
+models/resnet50_model.h5
+
+# ── Jupyter Notebook Junk ────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── IDE & OS ─────────────────────────────────────────────────
 .vscode/
 .idea/
-.ipynb_checkpoints/
 *.swp
 .DS_Store
 Thumbs.db
+
+# ── Misc ──────────────────────────────────────────────────────
+archive.zip
+chest_xray/
+*.log
+linkedin_post_card.html
