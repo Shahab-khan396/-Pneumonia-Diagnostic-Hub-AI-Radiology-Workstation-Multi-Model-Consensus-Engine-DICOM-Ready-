@@ -1,0 +1,5 @@
+Model,Accuracy (%),AUC,F1 (Pneumonia),Precision,Recall,F1 (Macro),Ensemble Weight
+MobileNetV2,89.42,0.9573,0.9158,0.9112,0.9205,0.8868,25%
+EfficientNetB0,74.36,0.8399,0.8230,0.7237,0.9538,0.6789,20%
+DenseNet121,89.42,0.9540,0.9173,0.8971,0.9385,0.8853,35%
+Xception,88.14,0.9523,0.9008,0.9438,0.8615,0.8767,20%
