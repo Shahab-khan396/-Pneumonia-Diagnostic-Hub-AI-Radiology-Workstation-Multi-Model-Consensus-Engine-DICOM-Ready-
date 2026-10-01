@@ -17,7 +17,8 @@ def generate_clinical_pdf_report(
     original_image_path: Path,
     gradcam_overlay_path: Optional[Path] = None,
     patient_metadata: Optional[Dict[str, Any]] = None,
-    output_dir: Optional[Path] = None
+    output_dir: Optional[Path] = None,
+    yolo_overlay_path: Optional[Path] = None
 ) -> Path:
     """
     Generate an official, publication-quality Clinical AI Diagnostic PDF Report.
@@ -187,31 +188,50 @@ def generate_clinical_pdf_report(
     # 4. Visual Radiological Evidence (Side-by-side Images)
     story.append(Paragraph("<b>1. Radiological & Spatial Attention Evidence</b>", section_heading))
     
-    img_width = 235
-    img_height = 175
-    
-    orig_img_flowable = Image(str(original_image_path), width=img_width, height=img_height)
-    
-    if gradcam_overlay_path and Path(gradcam_overlay_path).exists():
-        cam_img_flowable = Image(str(gradcam_overlay_path), width=img_width, height=img_height)
-    else:
-        cam_img_flowable = orig_img_flowable
+    has_yolo = yolo_overlay_path and Path(yolo_overlay_path).exists()
+    has_cam = gradcam_overlay_path and Path(gradcam_overlay_path).exists()
 
-    image_table_data = [
-        [
-            orig_img_flowable,
-            cam_img_flowable
-        ],
-        [
-            Paragraph("<font size=7.5 color='#64748b'><b>Figure A:</b> Original Chest Radiograph</font>", styles["Normal"]),
-            Paragraph("<font size=7.5 color='#64748b'><b>Figure B:</b> Grad-CAM Anatomical Heatmap Overlay</font>", styles["Normal"])
+    if has_yolo and has_cam:
+        img_width = 175
+        img_height = 145
+        orig_img_flowable = Image(str(original_image_path), width=img_width, height=img_height)
+        cam_img_flowable = Image(str(gradcam_overlay_path), width=img_width, height=img_height)
+        yolo_img_flowable = Image(str(yolo_overlay_path), width=img_width, height=img_height)
+
+        image_table_data = [
+            [orig_img_flowable, cam_img_flowable, yolo_img_flowable],
+            [
+                Paragraph("<font size=7 color='#64748b'><b>Fig A:</b> Original CXR</font>", styles["Normal"]),
+                Paragraph("<font size=7 color='#64748b'><b>Fig B:</b> Grad-CAM Attention</font>", styles["Normal"]),
+                Paragraph("<font size=7 color='#64748b'><b>Fig C:</b> YOLOv8 Lesion Boxes</font>", styles["Normal"])
+            ]
         ]
-    ]
-    image_table = Table(image_table_data, colWidths=[270, 270])
+        image_table = Table(image_table_data, colWidths=[180, 180, 180])
+    else:
+        img_width = 235
+        img_height = 175
+        orig_img_flowable = Image(str(original_image_path), width=img_width, height=img_height)
+        if has_cam:
+            cam_img_flowable = Image(str(gradcam_overlay_path), width=img_width, height=img_height)
+        elif has_yolo:
+            cam_img_flowable = Image(str(yolo_overlay_path), width=img_width, height=img_height)
+        else:
+            cam_img_flowable = orig_img_flowable
+
+        label_b = "YOLOv8 Lesion Boxes" if has_yolo and not has_cam else "Grad-CAM Heatmap Overlay"
+        image_table_data = [
+            [orig_img_flowable, cam_img_flowable],
+            [
+                Paragraph("<font size=7.5 color='#64748b'><b>Figure A:</b> Original Chest Radiograph</font>", styles["Normal"]),
+                Paragraph(f"<font size=7.5 color='#64748b'><b>Figure B:</b> {label_b}</font>", styles["Normal"])
+            ]
+        ]
+        image_table = Table(image_table_data, colWidths=[270, 270])
+
     image_table.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 3),
+        ('PADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(image_table)
     story.append(Spacer(1, 10))
