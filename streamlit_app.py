@@ -260,18 +260,18 @@ with st.sidebar:
         "Inference Engine Mode",
         ["Multi-Model Consensus", "Single Architecture Deep-Dive"],
         index=0,
-        help="Consensus mode uses soft-voting across MobileNetV2, ResNet50, EfficientNet, and VGG19. Deep-Dive evaluates an isolated model."
+        help="Consensus mode uses soft-voting across DenseNet121 (35%), MobileNetV2 (25%), Xception (20%), and EfficientNetB0 (20%). Deep-Dive evaluates an isolated model."
     )
 
     selected_single_model = DEFAULT_MODEL
     fast_consensus_mode = False
     
     if op_mode == "Multi-Model Consensus":
-        st.caption("Consensus Engine aggregates 4 deep architectures with validation-calibrated soft-voting weights.")
+        st.caption("Consensus Engine aggregates 4 deep architectures (DenseNet121, MobileNetV2, Xception, EfficientNetB0) with validation-calibrated soft-voting weights.")
         fast_consensus_mode = st.checkbox(
             "⚡ Streamlit Cloud Fast Mode",
             value=False,
-            help="Excludes the 443MB VGG19 model to ensure rapid inference and minimize RAM footprint under cloud hosting limits."
+            help="Skips resource-heavy operations to ensure rapid inference under cloud hosting limits."
         )
     else:
         model_options = list(AVAILABLE_MODELS.keys())
@@ -711,8 +711,8 @@ if st.session_state.get("inference_result"):
                     if m_over_path.exists():
                         st.image(str(m_over_path), caption=f"{m_card['name']} CAM", use_container_width=True)
     else:
-        active_model_name = res.get("model_name", "MobileNetV2")
-        st.info(f"💡 **Single Architecture Mode Active**: You evaluated this study using **{active_model_name}**. To view the side-by-side Multi-Architecture Comparative Grid with isolated metrics and Grad-CAM attention across all 4 models (MobileNetV2, ResNet50, EfficientNetB0, VGG19), select **Multi-Model Consensus** in the left sidebar and click *Execute AI Diagnostic Analysis*.")
+        active_model_name = res.get("model_name", "DenseNet121")
+        st.info(f"💡 **Single Architecture Mode Active**: You evaluated this study using **{active_model_name}**. To view the side-by-side Multi-Architecture Comparative Grid with isolated metrics and Grad-CAM attention across all 4 models (DenseNet121, MobileNetV2, Xception, EfficientNetB0), select **Multi-Model Consensus** in the left sidebar and click *Execute AI Diagnostic Analysis*.")
 
 
     # ─── Step 6: Publication-Grade Clinical PDF Report Generator ───────────────

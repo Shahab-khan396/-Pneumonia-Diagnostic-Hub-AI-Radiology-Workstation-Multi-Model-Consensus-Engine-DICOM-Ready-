@@ -40,7 +40,9 @@ def run_multi_model_comparison(
         if exclude_vgg and model_id.lower() == "vgg19":
             continue
 
-        weight = ENSEMBLE_WEIGHTS.get(model_id, 0.25)
+        weight = ENSEMBLE_WEIGHTS.get(model_id, 0.0)
+        if weight <= 0:
+            continue
         total_weight += weight
         
         # Run inference
@@ -104,7 +106,7 @@ def run_multi_model_comparison(
         consensus_confidence = consensus_normal_pct
 
     # Determine agreement status
-    total_models = len(AVAILABLE_MODELS)
+    total_models = len(model_results)
     winning_votes = max(pneumonia_votes, normal_votes)
     
     if winning_votes == total_models:

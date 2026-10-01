@@ -30,30 +30,72 @@ def compute_gradcam_heatmap(
     Returns:
         np.ndarray: 2D normalized float32 heatmap array with values in [0.0, 1.0].
     """
+    # Check if target layer is in the top-level model or inside a nested backbone
+    target_layer = None
+    backbone = None
+    pre_layers = []
+    head_layers = []
+    found_backbone = False
+
     try:
         target_layer = model.get_layer(target_layer_name)
     except ValueError:
-        # Fallback: Find the last Conv2D or 4D layer if exact layer name is not found
-        candidate = None
-        for layer in reversed(model.layers):
-            if "conv" in layer.name.lower() or "relu" in layer.name.lower() or "activation" in layer.name.lower():
-                candidate = layer
-                break
-        if candidate is None:
-            raise ValueError(f"Could not locate target layer '{target_layer_name}' in model.")
-        target_layer = candidate
+        pass
 
-    grad_model = Model(inputs=model.inputs, outputs=[target_layer.output, model.output])
+    if target_layer is not None:
+        # Standard flat model path
+        grad_model = Model(inputs=model.inputs, outputs=[target_layer.output, model.output])
+        with tf.GradientTape() as tape:
+            conv_outputs, predictions = grad_model(img_tensor)
+            if pred_index is None:
+                pred_index = tf.argmax(predictions[0])
+            class_channel = predictions[:, pred_index]
+        grads = tape.gradient(class_channel, conv_outputs)
+    else:
+        # Transfer-learning model with nested backbone sub-model
+        for layer in model.layers:
+            if isinstance(layer, tf.keras.Model) or (hasattr(layer, "layers") and len(layer.layers) > 5):
+                backbone = layer
+                found_backbone = True
+            elif not found_backbone:
+                if not isinstance(layer, tf.keras.layers.InputLayer):
+                    pre_layers.append(layer)
+            else:
+                head_layers.append(layer)
 
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(img_tensor)
-        if pred_index is None:
-            pred_index = tf.argmax(predictions[0])
-        class_channel = predictions[:, pred_index]
+        if backbone is not None:
+            try:
+                target_layer = backbone.get_layer(target_layer_name)
+            except ValueError:
+                for layer in reversed(backbone.layers):
+                    if any(k in layer.name.lower() for k in ("conv", "relu", "activation", "sepconv")):
+                        if hasattr(layer.output, "shape") and len(layer.output.shape) == 4:
+                            target_layer = layer
+                            break
 
-    # Compute gradients of target class wrt feature maps
-    grads = tape.gradient(class_channel, conv_outputs)
-    
+        if target_layer is None:
+            raise ValueError(f"Could not locate target layer '{target_layer_name}' in model or backbone.")
+
+        feature_extractor = Model(inputs=backbone.inputs, outputs=[target_layer.output, backbone.output])
+
+        with tf.GradientTape() as tape:
+            x = img_tensor
+            for layer in pre_layers:
+                x = layer(x)
+            conv_outputs, backbone_out = feature_extractor(x)
+            tape.watch(conv_outputs)
+
+            head_x = backbone_out
+            for layer in head_layers:
+                head_x = layer(head_x)
+
+            predictions = head_x
+            if pred_index is None:
+                pred_index = tf.argmax(predictions[0])
+            class_channel = predictions[:, pred_index]
+
+        grads = tape.gradient(class_channel, conv_outputs)
+
     # Global average pooling of gradients
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
@@ -70,7 +112,7 @@ def compute_gradcam_heatmap(
     else:
         heatmap = tf.zeros_like(heatmap)
 
-    return heatmap.numpy()
+    return np.float32(heatmap.numpy())
 
 
 def create_gradcam_overlay(
@@ -101,6 +143,9 @@ def create_gradcam_overlay(
             raise ValueError(f"Could not read original image at {original_image_path}: {e}")
 
     h, w, _ = orig_img.shape
+
+    # Ensure float32 to prevent OpenCV assertion failure when mixed_float16 is used
+    heatmap = np.float32(heatmap)
 
     # Resize heatmap to original image dimensions with bicubic interpolation
     resized_heatmap = cv2.resize(heatmap, (w, h), interpolation=cv2.INTER_CUBIC)
