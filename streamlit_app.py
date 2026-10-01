@@ -196,6 +196,8 @@ if "dicom_metadata" not in st.session_state:
     st.session_state["dicom_metadata"] = None
 if "inference_result" not in st.session_state:
     st.session_state["inference_result"] = None
+if "yolo_result" not in st.session_state:
+    st.session_state["yolo_result"] = None
 if "patient_notes" not in st.session_state:
     st.session_state["patient_notes"] = ""
 if "clinician_name" not in st.session_state:
@@ -310,6 +312,20 @@ with st.sidebar:
         value=0.45,
         step=0.05,
         help="Adjust the transparency of the attention heatmap overlaid onto the anatomical chest radiograph."
+    )
+
+    st.markdown("---")
+
+    # YOLOv8 Anatomical Localization Controls
+    st.markdown("##### 🎯 Lesion Localization (YOLOv8)")
+    enable_yolo = st.toggle("Enable YOLOv8 Lesion Bounding Boxes", value=True, help="Detects discrete pneumonia consolidation opacities with pixel-precise bounding boxes.")
+    yolo_conf = st.slider(
+        "Detection Confidence Threshold",
+        min_value=0.05,
+        max_value=0.75,
+        value=0.15,
+        step=0.05,
+        help="Minimum confidence threshold for displaying detected pneumonia lesion bounding boxes."
     )
 
     st.markdown("---")
@@ -522,6 +538,14 @@ if st.session_state["selected_image_path"]:
                         st.session_state["inference_type"] = "single"
                         st.session_state["active_heatmap"] = pred_res.get("raw_heatmap")
 
+                    # Run YOLOv8 Anatomical Localization if enabled
+                    if enable_yolo:
+                        from core.yolo_detector import run_yolo_detection
+                        yolo_detection_res = run_yolo_detection(active_path, conf_threshold=yolo_conf)
+                        st.session_state["yolo_result"] = yolo_detection_res
+                    else:
+                        st.session_state["yolo_result"] = None
+
                     st.success("AI Diagnostic Screening Completed!")
                 except Exception as infer_err:
                     st.error(f"Inference execution encountered an issue: {infer_err}")
@@ -679,6 +703,64 @@ if st.session_state.get("inference_result"):
         with st.expander("🖼️ View High-Resolution Diagnostic Composite Triad", expanded=True):
             st.image(str(composite_path), caption="[ Original Radiograph | Class Activation Heatmap | Diagnostic Anatomical Overlay ]", use_container_width=True)
 
+    # ─── Step 4.5: Anatomical Lesion Localization (YOLOv8 Bounding Boxes) ───────
+    if st.session_state.get("yolo_result"):
+        y_res = st.session_state["yolo_result"]
+        st.markdown("---")
+        st.markdown("### 🎯 Step 4.5: Anatomical Lesion Localization (YOLOv8 Bounding Boxes)")
+        st.caption("Deep CNNs perform global classification, whereas YOLOv8 localizes discrete consolidation opacities with anatomical bounding boxes.")
+
+        yolo_col1, yolo_col2 = st.columns([1, 1])
+
+        with yolo_col1:
+            st.markdown("##### 🩻 YOLOv8 Lesion Detection Overlay")
+            if y_res.get("annotated_rgb") is not None:
+                st.image(
+                    y_res["annotated_rgb"],
+                    caption=f"YOLOv8 Localization Overlay ({y_res['count']} Lesion(s) Detected)",
+                    use_container_width=True
+                )
+            elif y_res.get("annotated_image_path") and Path(y_res["annotated_image_path"]).exists():
+                st.image(
+                    str(y_res["annotated_image_path"]),
+                    caption=f"YOLOv8 Localization ({y_res['count']} Lesion(s) Detected)",
+                    use_container_width=True
+                )
+
+        with yolo_col2:
+            st.markdown("##### 📋 Lesion Morphometry & Coordinates")
+            if y_res["count"] > 0:
+                st.markdown(f"""
+                <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #F87171;">🎯 {y_res['count']} Focal Pneumonia Lesion(s) Identified</div>
+                    <div style="font-size: 0.85rem; color: #E2E8F0; margin-top: 4px;">Bounding boxes delineate localized parenchymal consolidation or alveolar infiltrates.</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                for box_item in y_res["boxes"]:
+                    st.markdown(f"""
+                    <div class="metric-card" style="border-left: 4px solid #EF4444; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 800; color: #F87171; font-size: 0.95rem;">Lesion #{box_item['id']} • {box_item['class_name']}</span>
+                            <span style="background: rgba(239, 68, 68, 0.2); color: #FCA5A5; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;">
+                                {box_item['confidence']}% Conf
+                            </span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94A3B8; margin-top: 6px;">
+                            BBox: <code>{box_item['coordinates_str']}</code>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">
+                            Spatial Size: {box_item['width']} × {box_item['height']} pixels
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 16px;">
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #34D399;">✅ No Focal Pneumonia Opacities Localized</div>
+                    <div style="font-size: 0.85rem; color: #94A3B8; margin-top: 4px;">YOLOv8 detected no discrete bounding boxes above the confidence threshold. Consistent with clear bilateral lung parenchyma or diffuse non-focal pattern.</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     # ─── Step 5: Multi-Model Architecture Comparative Grid ─────────────────────
     st.markdown("---")
@@ -759,13 +841,20 @@ if st.session_state.get("inference_result"):
                         cv2.imwrite(str(temp_report_cam), dyn_overlay_bgr)
                         report_cam_path = temp_report_cam
 
+                    yolo_overlay_report = None
+                    if st.session_state.get("yolo_result") and st.session_state["yolo_result"].get("annotated_image_path"):
+                        yolo_candidate = Path(st.session_state["yolo_result"]["annotated_image_path"])
+                        if yolo_candidate.exists():
+                            yolo_overlay_report = yolo_candidate
+
                     pdf_file_path = generate_clinical_pdf_report(
                         scan_id=scan_uuid,
                         prediction_data=res,
                         original_image_path=active_image_path,
                         gradcam_overlay_path=report_cam_path,
                         patient_metadata=patient_meta,
-                        output_dir=Path(UPLOAD_FOLDER)
+                        output_dir=Path(UPLOAD_FOLDER),
+                        yolo_overlay_path=yolo_overlay_report
                     )
 
                     if pdf_file_path.exists():
