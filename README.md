@@ -71,49 +71,77 @@ graph TD
 
 ---
 
-## 📁 Clean Repository Structure
+## 📁 Repository Structure
 
 ```text
-├── streamlit_app.py           # Production Streamlit Clinical Decision Support Workstation
-├── app.py                     # Hugging Face Space & FastAPI ASGI Server Entrypoint
-├── config.py                  # Unified Root Configuration (Paths, Model Weights, Specs)
-├── core/                      # Core Machine Learning & Medical Imaging Engine
-│   ├── __init__.py            # Package exports
-│   ├── dicom_parser.py        # DICOM (.dcm) pixel decompression & metadata tags
-│   ├── ensemble.py            # 4-Model weighted soft-voting consensus logic
-│   ├── gradcam.py             # Gradient-weighted Class Activation Mapping (Grad-CAM)
-│   ├── model_manager.py       # Thread-safe lazy model caching & inference manager
-│   ├── preprocessor.py        # Radiograph CLAHE normalization & resizing (128x128)
-│   ├── report_generator.py    # Publication-grade Clinical PDF Report generation
-│   ├── sample_manager.py      # Synthetic radiograph study generator & catalog
-│   └── validator.py           # Secure file validation & collision-free path generator
-├── models/                    # Deep learning model weights (Tracked via Git LFS)
-│   ├── mobilenet_model.h5     # MobileNetV2 (~11.5 MB)
-│   ├── resnet50_model.h5      # ResNet50 (~101 MB)
-│   ├── efficientnet_model.h5  # EfficientNetB0 (~20.8 MB)
-│   └── VGG19_model.h5         # VGG19 (~443 MB)
-├── frontend/                  # Modern Next.js 15 Medical Dashboard (Vercel-ready)
-│   ├── app/                   # App Router UI & Serverless API Proxies
-│   ├── components/            # Workstation components (DICOM Viewer, Grad-CAM slider)
-│   └── package.json
-├── static/                    # Generated output assets & sample studies
-│   ├── samples/               # Pre-synthesized normal, bacterial & viral samples
-│   └── uploads/               # Processed scans, heatmaps & clinical reports
-├── tests/                     # 36 Comprehensive Pytest Unit & Integration Tests
-│   ├── test_api.py            # API endpoint health, predict & comparison tests
-│   ├── test_dicom.py          # DICOM header parsing & conversion tests
-│   ├── test_docs.py           # OpenAPI / Swagger UI schema validation tests
-│   ├── test_ensemble.py       # Consensus voting & weighting algorithm tests
-│   ├── test_gradcam.py        # Grad-CAM heatmap & overlay blending tests
-│   ├── test_model_manager.py  # ModelManager singleton & inference tests
-│   ├── test_preprocessor.py   # Tensor scaling & image normalization tests
-│   ├── test_report_generator.py# ReportLab PDF compilation tests
-│   ├── test_samples.py        # Synthetic sample radiograph generation tests
-│   └── test_streamlit_app.py  # Streamlit app compilation & configuration tests
-├── STREAMLIT_DEPLOYMENT.md    # Step-by-step Streamlit Cloud deployment guide
-├── Dockerfile                 # Production container specification
-├── docker-compose.yml         # Multi-container orchestration
-└── requirements.txt           # Production Python dependencies
+📦 Pneumonia-Diagnostic-Hub
+│
+├── 🧠 Core AI Engine
+│   ├── core/
+│   │   ├── __init__.py            # Package exports
+│   │   ├── model_manager.py       # Thread-safe lazy model caching & inference
+│   │   ├── ensemble.py            # 4-Model weighted soft-voting consensus logic
+│   │   ├── gradcam.py             # Gradient-weighted Class Activation Mapping
+│   │   ├── preprocessor.py        # CLAHE normalization & resizing (128×128)
+│   │   ├── dicom_parser.py        # DICOM (.dcm) decompression & metadata tags
+│   │   ├── report_generator.py    # ReportLab clinical PDF generation
+│   │   ├── sample_manager.py      # Pre-built sample radiograph catalog
+│   │   ├── yolo_detector.py       # YOLOv8n opacity bounding-box detection
+│   │   └── validator.py           # Secure file validation & path generation
+│   └── models/
+│       ├── mobilenet_model.h5     # MobileNetV2   — 89.42% acc, AUC 0.9573, wt=25%
+│       ├── densenet121_model.h5   # DenseNet121   — 89.42% acc, AUC 0.9540, wt=35%
+│       ├── efficientnet_model.h5  # EfficientNetB0— 74.36% acc, AUC 0.8399, wt=20%
+│       ├── xception_model.h5      # Xception      — 88.14% acc, AUC 0.9523, wt=20%
+│       └── yolov8_pneumonia.pt    # YOLOv8n — mAP@0.5=46.07%, 6.2MB, 3M params
+│
+├── 🖥️ Applications
+│   ├── streamlit_app.py           # ✅ PRODUCTION — Unified Clinical Workstation
+│   ├── app.py                     # Hugging Face Space & FastAPI ASGI entrypoint
+│   └── config.py                  # Unified configuration (paths, weights, specs)
+│
+├── 🌐 Frontend (Next.js 15 · Vercel)
+│   └── frontend/
+│       ├── app/                   # App Router pages & serverless API proxies
+│       ├── components/            # Workstation UI (DICOM viewer, Grad-CAM slider)
+│       ├── lib/                   # API client utilities
+│       ├── public/                # Static assets
+│       ├── next.config.ts
+│       ├── package.json
+│       └── vercel.json
+│
+├── 🧪 Tests (36 Pytest · All Passing)
+│   └── tests/
+│       ├── test_api.py            # API health, predict & compare endpoints
+│       ├── test_dicom.py          # DICOM header parsing & conversion
+│       ├── test_docs.py           # OpenAPI / Swagger schema validation
+│       ├── test_ensemble.py       # Consensus voting & weighting algorithm
+│       ├── test_gradcam.py        # Grad-CAM heatmap & overlay blending
+│       ├── test_model_manager.py  # ModelManager singleton & inference
+│       ├── test_preprocessor.py   # Tensor scaling & normalization
+│       ├── test_report_generator.py # ReportLab PDF compilation
+│       ├── test_samples.py        # Sample radiograph generation
+│       └── test_streamlit_app.py  # Streamlit app compilation & config
+│
+├── 📂 Static Assets
+│   └── static/
+│       ├── samples/               # 3 curated demo scans (normal, bacterial, viral)
+│       └── uploads/               # Runtime-generated (gitignored, .gitkeep only)
+│
+├── ⚙️ Configuration & Deployment
+│   ├── .streamlit/config.toml     # Streamlit theme & server config
+│   ├── Dockerfile                 # Production container specification
+│   ├── docker-compose.yml         # Multi-container orchestration
+│   ├── requirements.txt           # Python production dependencies
+│   ├── .gitignore                 # Excludes runtime files, large weights, cache
+│   ├── .gitattributes             # Git LFS tracking for .h5 / .pt model files
+│   ├── .env.example               # Environment variable reference
+│   └── .python-version            # Python 3.11 pinning
+│
+└── 📖 Documentation
+    ├── README.md                  # Project overview, architecture, quickstart
+    ├── STREAMLIT_DEPLOYMENT.md    # Step-by-step Streamlit Cloud deploy guide
+    └── LICENSE                    # MIT License
 ```
 
 ---
